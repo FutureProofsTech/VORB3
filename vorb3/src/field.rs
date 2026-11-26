@@ -177,7 +177,7 @@ impl F288 {
     /// Field addition (XOR), without the operator trait.
     #[must_use]
     #[inline]
-    const fn add_value(self, rhs: Self) -> Self {
+    pub(crate) const fn add_value(self, rhs: Self) -> Self {
         let [a0, a1, a2, a3, a4] = self.limbs;
         let [b0, b1, b2, b3, b4] = rhs.limbs;
         Self {
@@ -188,7 +188,7 @@ impl F288 {
     /// Field multiplication, without the operator trait.
     #[must_use]
     #[inline]
-    fn mul_value(self, rhs: Self) -> Self {
+    pub(crate) fn mul_value(self, rhs: Self) -> Self {
         Self {
             limbs: mul_reduce(self.limbs, rhs.limbs),
         }

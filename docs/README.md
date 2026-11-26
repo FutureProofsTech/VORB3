@@ -13,6 +13,7 @@
 | `SECURITY-CASE.md` | Security target, F-33 union bound, assumptions |
 | `DECISIONS.md` | ADRs D1–D21 and findings F-01–F-33 |
 | `PHASE0-REDTEAM.md` | Internal adversarial review |
+| `PHASE1-4-REPORT.md` | Phase 1–4 implementation checkpoint |
 | `../model/vorb3_model.py` | Independent Python/py-blake3 model |
 | `../model/README.md` | Model usage and limitations |
 

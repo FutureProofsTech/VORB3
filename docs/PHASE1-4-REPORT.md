@@ -1,10 +1,10 @@
-# VORB3 — Phase 1 / Phase 2 Field Checkpoint
+# VORB3 — Phase 1–4 Checkpoint
 
 **Date:** 2026-11-26
 **Profile:** **SP-288/35 frozen** — GF(2^288), 35 trees, depth 8, 15 rounds,
 13,672-byte signature.
-**Status:** Phase 1 gate passed; Phase 2 constant-time/field foundation started.
-No sign/verify code yet.
+**Status:** Phase 1 gate passed; Phase 2 field/CT assurance, Phase 3 BLAKE3/WH512,
+and Phase 4 Rain-SP1 are implemented at checkpoint. No GGM/transcript/sign/verify yet.
 
 ---
 
@@ -91,6 +91,25 @@ cargo +nightly miri test --test profile      PASS
 field differential: 512 Python vectors       PASS
 inverse self-consistency: 2,000 values       PASS
 ```
+
+## 3.1 Phase 3 — BLAKE3/WH512
+
+- `vorb3/src/blake3.rs`: from-scratch BLAKE3 hash, keyed hash, derive-key,
+  XOF, streaming tree hashing, and WH512.
+- Tests: empty, `abc`, 1024-byte chunk, 3000-byte multi-chunk tree, keyed,
+  derive-key, XOF prefix, WH512 A/B.
+- No raw indexing allow: the standard `clippy::indexing_slicing` deny is active
+  in `lib.rs`; the compression permutation uses compile-time literal indices.
+- Kani/Miri: Kani field/CT harnesses still pass; Miri short BLAKE3 passes.
+
+## 3.2 Phase 4 — Rain-SP1
+
+- `vorb3/src/rain.rs`: 15-round field-linear Rain-SP1, deterministic
+  constants from BLAKE3 derive-key, zero-safe selector witness, fixed arrays.
+- Test: independent Python KAT for `ct`, plus a forced-zero-state selector
+  test.
+- Gate: `scripts/gate.sh` passes with tests, clippy, release, thumb, and
+  zero-dependency proof.
 
 ## 4. What is not done yet
 

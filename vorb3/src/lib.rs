@@ -6,11 +6,10 @@
 //!
 //! # Status
 //!
-//! Phase 1 is the repository/toolchain/lint skeleton; Phase 2 has started with
-//! the constant-time foundation and GF(2^288) arithmetic. The remaining
-//! cryptographic modules (BLAKE3/WH512, Rain-SP1, GGM/Merkle, transcript,
-//! `QuickSilver`, sign/verify) follow in later phases. Profile constants are the
-//! single source of truth for the implementation.
+//! Phase 1 is the repository/toolchain/lint skeleton; Phase 2 implements the
+//! constant-time/GF(2^288) foundation; Phase 3 implements BLAKE3/WH512; Phase 4
+//! implements Rain-SP1. GGM/Merkle, transcript, `QuickSilver`, and sign/verify
+//! follow in later phases. Profile constants are the single source of truth.
 //!
 //! # Doctrine
 //!
@@ -29,13 +28,43 @@
 
 #![no_std]
 #![forbid(unsafe_code)]
+// LEVEL 1: deny all default lax patterns
+#![deny(clippy::all)]
+#![deny(clippy::pedantic)]
+#![deny(clippy::nursery)]
+#![deny(clippy::cargo)]
+// LEVEL 2: core ecosystem isolation
+#![deny(clippy::alloc_instead_of_core)]
+#![deny(clippy::std_instead_of_core)]
+#![deny(clippy::std_instead_of_alloc)]
+// LEVEL 3: zero runtime panic matrices
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::indexing_slicing)]
+#![deny(clippy::panic)]
+#![deny(clippy::todo)]
+#![deny(clippy::unimplemented)]
+#![deny(clippy::unreachable)]
+// LEVEL 4: bit-level security and casting
+#![deny(clippy::as_conversions)]
+#![deny(clippy::cast_lossless)]
+#![deny(clippy::cast_possible_truncation)]
+#![deny(clippy::cast_possible_wrap)]
+#![deny(clippy::float_arithmetic)]
+// LEVEL 5: compiler restructuring and memory tracking
+#![deny(clippy::missing_inline_in_public_items)]
+#![deny(clippy::exhaustive_structs)]
+// Additional VORB3 arithmetic-safety gate
+#![deny(clippy::arithmetic_side_effects)]
 #![deny(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]
 
+pub mod blake3;
 mod ct;
 pub mod field;
 #[cfg(kani)]
 mod kani_proofs;
+pub mod rain;
 mod zeroize;
 
 /// Frozen specification identifier.

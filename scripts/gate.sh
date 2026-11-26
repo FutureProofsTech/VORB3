@@ -21,4 +21,4 @@ cargo build --package vorb3 --lib --target thumbv7em-none-eabihf --locked --offl
 printf '== dependency proof ==\n'
 ./scripts/check-no-deps.sh
 
-printf 'LOCAL GATE (PHASE 1 + field/CT): PASS\n'
+printf 'LOCAL GATE (PHASE 1-4): PASS\n'

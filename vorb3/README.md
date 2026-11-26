@@ -4,8 +4,9 @@ Frozen profile: **SP-288/35** — GF(2^288), 35 GGM trees, depth 8, 15 rounds,
 13,672-byte signature.
 
 This is the production `no_std` library. Phase 1 (repository/toolchain/lint/
-zero-dependency gate) is complete; Phase 2 has started with constant-time
-primitives and GF(2^288) arithmetic. The remaining crypto modules follow.
+zero-dependency gate), Phase 2 (constant-time/GF(2^288)), Phase 3
+(BLAKE3/WH512), and Phase 4 (Rain-SP1) are implemented. GGM/Merkle, transcript,
+`QuickSilver`, and sign/verify follow.
 
 - No `std`, no `alloc`.
 - `forbid(unsafe_code)`.
