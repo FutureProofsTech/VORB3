@@ -1,10 +1,11 @@
-# VORB3 — Phase 1–4 Checkpoint
+# VORB3 — Phase 1–5 Checkpoint
 
 **Date:** 2026-11-26
 **Profile:** **SP-288/35 frozen** — GF(2^288), 35 trees, depth 8, 15 rounds,
 13,672-byte signature.
 **Status:** Phase 1 gate passed; Phase 2 field/CT assurance, Phase 3 BLAKE3/WH512,
-and Phase 4 Rain-SP1 are implemented at checkpoint. No GGM/transcript/sign/verify yet.
+Phase 4 Rain-SP1, and Phase 5 GGM/Merkle/transcript are implemented at
+checkpoint. No QuickSilver/sign/verify yet.
 
 ---
 
@@ -110,6 +111,16 @@ inverse self-consistency: 2,000 values       PASS
   test.
 - Gate: `scripts/gate.sh` passes with tests, clippy, release, thumb, and
   zero-dependency proof.
+
+## 3.3 Phase 5 — GGM/Merkle/transcript
+
+- `vorb3/src/ggm.rs`: 256-leaf GGM per tree, 64-byte leaf/node commitments,
+  copath extraction, Merkle-root reconstruction from hidden commitment+copath.
+- `vorb3/src/transcript.rs`: 512-bit framed/ratcheted transcript over WH512.
+- KATs: one full Python-model tree (root, hidden share, hidden commitment,
+  eight copath seeds, root reconstruction) and transcript DELTA/CHI/H2.
+- GGM peak array is split below the 16 KiB per-array lint threshold; the full
+  one-tree build is within the 64 KiB stack cap.
 
 ## 4. What is not done yet
 

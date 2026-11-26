@@ -120,6 +120,25 @@ impl F288 {
             .and(ct_is_zero_u64(a4 ^ b4))
     }
 
+    /// Constant-time field selection: returns `if_true` when `choice` is true,
+    /// otherwise `if_false`.
+    #[must_use]
+    #[inline]
+    #[allow(dead_code)] // used by the GGM leaf-zero mapping; GGM is wired into sign in Phase 6.
+    pub(crate) fn ct_select(choice: CtChoice, if_false: Self, if_true: Self) -> Self {
+        let [a0, a1, a2, a3, a4] = if_false.limbs;
+        let [b0, b1, b2, b3, b4] = if_true.limbs;
+        Self {
+            limbs: [
+                choice.select_u64(a0, b0),
+                choice.select_u64(a1, b1),
+                choice.select_u64(a2, b2),
+                choice.select_u64(a3, b3),
+                choice.select_u64(a4, b4),
+            ],
+        }
+    }
+
     /// Wipes this field element in place.
     ///
     /// This is best-effort zeroization of the owned limbs; it uses the safe

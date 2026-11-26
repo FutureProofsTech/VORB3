@@ -5,8 +5,8 @@ Frozen profile: **SP-288/35** — GF(2^288), 35 GGM trees, depth 8, 15 rounds,
 
 This is the production `no_std` library. Phase 1 (repository/toolchain/lint/
 zero-dependency gate), Phase 2 (constant-time/GF(2^288)), Phase 3
-(BLAKE3/WH512), and Phase 4 (Rain-SP1) are implemented. GGM/Merkle, transcript,
-`QuickSilver`, and sign/verify follow.
+(BLAKE3/WH512), Phase 4 (Rain-SP1), and Phase 5 (GGM/Merkle/transcript) are
+implemented. `QuickSilver` and sign/verify follow.
 
 - No `std`, no `alloc`.
 - `forbid(unsafe_code)`.

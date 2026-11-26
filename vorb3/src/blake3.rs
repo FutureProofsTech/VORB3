@@ -439,12 +439,54 @@ pub fn keyed_hash(key: [u8; KEY_LEN], data: &[u8]) -> [u8; OUT_LEN] {
     out
 }
 
+/// Computes the 32-byte derive-key context key for a context string.
+#[inline]
+fn context_key(context: &str) -> [u8; OUT_LEN] {
+    let mut key = [0u8; OUT_LEN];
+    hash_internal(context.as_bytes(), IV, DERIVE_KEY_CONTEXT).root_bytes(&mut key);
+    key
+}
+
 /// Writes a BLAKE3 derive-key output of any length.
 #[inline]
 pub fn derive_key(context: &str, data: &[u8], out: &mut [u8]) {
-    let mut context_key = [0u8; OUT_LEN];
-    hash_internal(context.as_bytes(), IV, DERIVE_KEY_CONTEXT).root_bytes(&mut context_key);
-    hash_internal(data, key_words(context_key), DERIVE_KEY_MATERIAL).root_bytes(out);
+    let key = context_key(context);
+    hash_internal(data, key_words(key), DERIVE_KEY_MATERIAL).root_bytes(out);
+}
+
+/// Streaming WH512: two independent BLAKE3 derive-key states for the A/B
+/// contexts. Used by the transcript for arbitrary-length absorptions without
+/// allocation.
+pub(crate) struct Wh512Hasher {
+    left: Hasher,
+    right: Hasher,
+}
+
+impl Wh512Hasher {
+    #[inline]
+    pub(crate) fn new() -> Self {
+        let left_key = context_key("VORB3-WH512-A-V1");
+        let right_key = context_key("VORB3-WH512-B-V1");
+        Self {
+            left: Hasher::new(key_words(left_key), DERIVE_KEY_MATERIAL),
+            right: Hasher::new(key_words(right_key), DERIVE_KEY_MATERIAL),
+        }
+    }
+
+    #[inline]
+    pub(crate) fn update(&mut self, data: &[u8]) {
+        self.left.update(data);
+        self.right.update(data);
+    }
+
+    #[inline]
+    pub(crate) fn finalize(self) -> [u8; 64] {
+        let mut out = [0u8; 64];
+        let (left, right) = out.split_at_mut(32);
+        self.left.finalize().root_bytes(left);
+        self.right.finalize().root_bytes(right);
+        out
+    }
 }
 
 /// Computes the WH512 wide hash: two independent 32-byte BLAKE3 derive-key
@@ -452,9 +494,7 @@ pub fn derive_key(context: &str, data: &[u8], out: &mut [u8]) {
 #[must_use]
 #[inline]
 pub fn wh512(data: &[u8]) -> [u8; 64] {
-    let mut out = [0u8; 64];
-    let (left, right) = out.split_at_mut(32);
-    derive_key("VORB3-WH512-A-V1", data, left);
-    derive_key("VORB3-WH512-B-V1", data, right);
-    out
+    let mut hasher = Wh512Hasher::new();
+    hasher.update(data);
+    hasher.finalize()
 }
