@@ -1,0 +1,24 @@
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 693133462
+INFO: Loaded 1 modules   (1019 inline 8-bit counters): 1019 [0x563541b7a7d0, 0x563541b7abcb), 
+INFO: Loaded 1 PC tables (1019 PCs): 1019 [0x563541b7abd0,0x563541b7eb80), 
+INFO:        3 files found in /home/workstation/Documents/VORB3/fuzz/corpus/verify
+INFO: -max_len is not provided; libFuzzer will not generate inputs larger than 13672 bytes
+INFO: seed corpus: files: 3 min: 6069b max: 13672b total: 33413b rss: 37Mb
+#4	INITED cov: 259 ft: 261 corp: 3/32Kb exec/s: 0 rss: 39Mb
+#5	REDUCE cov: 259 ft: 261 corp: 3/31Kb lim: 13672 exec/s: 5 rss: 40Mb L: 4574/13672 MS: 1 EraseBytes-
+#7	REDUCE cov: 259 ft: 261 corp: 3/29Kb lim: 13672 exec/s: 7 rss: 41Mb L: 2734/13672 MS: 2 ChangeByte-EraseBytes-
+#8	REDUCE cov: 259 ft: 261 corp: 3/28Kb lim: 13672 exec/s: 8 rss: 41Mb L: 1389/13672 MS: 1 EraseBytes-
+#16	pulse  cov: 259 ft: 261 corp: 3/28Kb lim: 13672 exec/s: 5 rss: 42Mb
+#32	pulse  cov: 259 ft: 261 corp: 3/28Kb lim: 13672 exec/s: 4 rss: 43Mb
+#40	RELOAD cov: 259 ft: 262 corp: 4/28Kb lim: 13672 exec/s: 4 rss: 43Mb
+#50	RELOAD cov: 259 ft: 263 corp: 5/28Kb lim: 13672 exec/s: 3 rss: 43Mb
+#61	RELOAD cov: 259 ft: 265 corp: 7/40Kb lim: 13672 exec/s: 3 rss: 44Mb
+#64	pulse  cov: 259 ft: 265 corp: 7/40Kb lim: 13672 exec/s: 3 rss: 44Mb
+#73	RELOAD cov: 259 ft: 266 corp: 8/41Kb lim: 13672 exec/s: 3 rss: 44Mb
+#99	RELOAD cov: 259 ft: 267 corp: 9/43Kb lim: 13672 exec/s: 3 rss: 45Mb
+#102	REDUCE cov: 259 ft: 267 corp: 9/42Kb lim: 13672 exec/s: 3 rss: 45Mb L: 858/13672 MS: 3 CrossOver-CrossOver-EraseBytes-
+#119	RELOAD cov: 259 ft: 268 corp: 10/44Kb lim: 13672 exec/s: 3 rss: 46Mb
+#128	pulse  cov: 259 ft: 268 corp: 10/44Kb lim: 13672 exec/s: 3 rss: 46Mb
+#133	REDUCE cov: 259 ft: 268 corp: 10/44Kb lim: 13672 exec/s: 3 rss: 46Mb L: 762/13672 MS: 4 CrossOver-ShuffleBytes-ChangeByte-EraseBytes-
+#148	RELOAD cov: 259 ft: 269 corp: 11/44Kb lim: 13672 exec/s: 3 rss: 47Mb

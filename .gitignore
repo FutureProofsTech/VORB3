@@ -7,3 +7,6 @@ model/__pycache__/
 *.rs.bk
 evidence/
 .DS_Store
+fuzz/artifacts/
+fuzz/corpus/verify/*
+!fuzz/corpus/verify/seed

@@ -1,0 +1,25 @@
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 696127902
+INFO: Loaded 1 modules   (1019 inline 8-bit counters): 1019 [0x55bcfc29a7d0, 0x55bcfc29abcb), 
+INFO: Loaded 1 PC tables (1019 PCs): 1019 [0x55bcfc29abd0,0x55bcfc29eb80), 
+INFO:        3 files found in /home/workstation/Documents/VORB3/fuzz/corpus/verify
+INFO: -max_len is not provided; libFuzzer will not generate inputs larger than 13672 bytes
+INFO: seed corpus: files: 3 min: 6069b max: 13672b total: 33413b rss: 37Mb
+#4	INITED cov: 259 ft: 261 corp: 3/32Kb exec/s: 0 rss: 39Mb
+#16	pulse  cov: 259 ft: 261 corp: 3/32Kb lim: 13672 exec/s: 5 rss: 42Mb
+#32	pulse  cov: 259 ft: 262 corp: 3/32Kb lim: 13672 exec/s: 5 rss: 42Mb
+#32	NEW    cov: 259 ft: 262 corp: 4/33Kb lim: 13672 exec/s: 5 rss: 42Mb L: 406/13672 MS: 5 CrossOver-CMP-EraseBytes-ChangeASCIIInt-EraseBytes- DE: "\000\000\000\205"-
+#47	RELOAD cov: 259 ft: 263 corp: 5/33Kb lim: 13672 exec/s: 4 rss: 43Mb
+#55	RELOAD cov: 259 ft: 264 corp: 6/44Kb lim: 13672 exec/s: 4 rss: 43Mb
+#62	REDUCE cov: 259 ft: 264 corp: 6/43Kb lim: 13672 exec/s: 4 rss: 43Mb L: 4949/13672 MS: 2 InsertByte-EraseBytes-
+#64	pulse  cov: 259 ft: 265 corp: 7/44Kb lim: 13672 exec/s: 4 rss: 43Mb
+#65	RELOAD cov: 259 ft: 265 corp: 7/44Kb lim: 13672 exec/s: 4 rss: 43Mb
+#75	RELOAD cov: 259 ft: 266 corp: 8/45Kb lim: 13672 exec/s: 4 rss: 44Mb
+#76	REDUCE cov: 259 ft: 266 corp: 8/44Kb lim: 13672 exec/s: 4 rss: 44Mb L: 9750/13672 MS: 1 EraseBytes-
+#88	REDUCE cov: 259 ft: 266 corp: 8/43Kb lim: 13672 exec/s: 4 rss: 44Mb L: 728/13672 MS: 4 InsertByte-ChangeByte-ShuffleBytes-EraseBytes-
+#110	REDUCE cov: 259 ft: 266 corp: 8/43Kb lim: 13672 exec/s: 4 rss: 45Mb L: 863/13672 MS: 4 InsertRepeatedBytes-ChangeBinInt-ChangeBit-EraseBytes-
+#116	REDUCE cov: 259 ft: 266 corp: 8/42Kb lim: 13672 exec/s: 4 rss: 45Mb L: 4431/13672 MS: 1 EraseBytes-
+#128	pulse  cov: 259 ft: 268 corp: 10/45Kb lim: 13672 exec/s: 4 rss: 46Mb
+#128	RELOAD cov: 259 ft: 268 corp: 10/45Kb lim: 13672 exec/s: 4 rss: 46Mb
+#171	REDUCE cov: 259 ft: 268 corp: 10/44Kb lim: 13672 exec/s: 4 rss: 47Mb L: 598/13672 MS: 3 ChangeBinInt-PersAutoDict-EraseBytes- DE: "\000\000\000\205"-
+#185	RELOAD cov: 259 ft: 269 corp: 11/45Kb lim: 13672 exec/s: 4 rss: 48Mb

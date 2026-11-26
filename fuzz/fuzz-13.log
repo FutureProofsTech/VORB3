@@ -1,0 +1,27 @@
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 714264993
+INFO: Loaded 1 modules   (1019 inline 8-bit counters): 1019 [0x55f0fd8d07d0, 0x55f0fd8d0bcb), 
+INFO: Loaded 1 PC tables (1019 PCs): 1019 [0x55f0fd8d0bd0,0x55f0fd8d4b80), 
+INFO:        3 files found in /home/workstation/Documents/VORB3/fuzz/corpus/verify
+INFO: -max_len is not provided; libFuzzer will not generate inputs larger than 13672 bytes
+INFO: seed corpus: files: 3 min: 6069b max: 13672b total: 33413b rss: 37Mb
+#4	INITED cov: 259 ft: 261 corp: 3/32Kb exec/s: 4 rss: 39Mb
+#8	pulse  cov: 259 ft: 261 corp: 3/32Kb lim: 13672 exec/s: 4 rss: 40Mb
+#16	pulse  cov: 259 ft: 261 corp: 3/32Kb lim: 13672 exec/s: 4 rss: 41Mb
+#25	REDUCE cov: 259 ft: 261 corp: 3/30Kb lim: 13672 exec/s: 4 rss: 42Mb L: 4024/13672 MS: 2 CopyPart-EraseBytes-
+#32	pulse  cov: 259 ft: 261 corp: 3/30Kb lim: 13672 exec/s: 4 rss: 42Mb
+#35	RELOAD cov: 259 ft: 262 corp: 4/31Kb lim: 13672 exec/s: 4 rss: 42Mb
+#36	REDUCE cov: 259 ft: 262 corp: 4/29Kb lim: 13672 exec/s: 4 rss: 42Mb L: 2280/13672 MS: 1 EraseBytes-
+#51	RELOAD cov: 259 ft: 263 corp: 5/29Kb lim: 13672 exec/s: 4 rss: 43Mb
+#59	RELOAD cov: 259 ft: 264 corp: 6/40Kb lim: 13672 exec/s: 4 rss: 43Mb
+#62	NEW    cov: 259 ft: 265 corp: 7/41Kb lim: 13672 exec/s: 4 rss: 43Mb L: 1003/13672 MS: 3 CrossOver-ShuffleBytes-InsertByte-
+#63	REDUCE cov: 259 ft: 265 corp: 7/41Kb lim: 13672 exec/s: 4 rss: 44Mb L: 2123/13672 MS: 1 EraseBytes-
+#64	pulse  cov: 259 ft: 265 corp: 7/41Kb lim: 13672 exec/s: 4 rss: 44Mb
+#69	REDUCE cov: 259 ft: 265 corp: 7/39Kb lim: 13672 exec/s: 4 rss: 44Mb L: 9064/13672 MS: 1 EraseBytes-
+#78	RELOAD cov: 259 ft: 266 corp: 8/40Kb lim: 13672 exec/s: 4 rss: 44Mb
+#83	REDUCE cov: 259 ft: 266 corp: 8/39Kb lim: 13672 exec/s: 4 rss: 44Mb L: 1073/13672 MS: 5 ChangeBinInt-ChangeBit-ChangeBit-InsertRepeatedBytes-EraseBytes-
+#125	RELOAD cov: 259 ft: 267 corp: 9/40Kb lim: 13672 exec/s: 4 rss: 45Mb
+#126	REDUCE cov: 259 ft: 267 corp: 9/40Kb lim: 13672 exec/s: 4 rss: 46Mb L: 875/13672 MS: 1 EraseBytes-
+#128	pulse  cov: 259 ft: 267 corp: 9/40Kb lim: 13672 exec/s: 4 rss: 46Mb
+#146	RELOAD cov: 259 ft: 268 corp: 10/41Kb lim: 13672 exec/s: 3 rss: 46Mb
+#170	RELOAD cov: 259 ft: 269 corp: 11/42Kb lim: 13672 exec/s: 3 rss: 47Mb
