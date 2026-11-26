@@ -103,6 +103,21 @@ pub struct RainWitness {
     pub(crate) b: [F288; ROUNDS],
 }
 
+impl Drop for RainWitness {
+    #[inline]
+    fn drop(&mut self) {
+        for value in &mut self.x {
+            value.wipe();
+        }
+        for value in &mut self.y {
+            value.wipe();
+        }
+        for value in &mut self.b {
+            value.wipe();
+        }
+    }
+}
+
 /// Encrypts `pt` under `sk`, returning the ciphertext and proof witness.
 ///
 /// `0^-1 = 0` is implemented by field exponentiation; the selector `b` is set

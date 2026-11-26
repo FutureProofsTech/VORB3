@@ -1,190 +1,141 @@
 //! GGM tree and Merkle commitment for VORB3-SP1.
 //!
-//! Each tree has 256 leaves at depth 8. A 36-byte GGM seed is expanded into two
-//! 36-byte children. Leaf shares are field elements; leaf commitments and
-//! internal nodes are 64-byte WH512 values. The copath stores the eight sibling
-//! seeds, allowing the verifier to reconstruct the Merkle root without the
-//! hidden leaf.
+//! The signer has a two-pass GGM/Merkle path: one streaming pass computes a
+//! tree root, and a second path pass extracts the hidden leaf share,
+//! commitment, and copath. No full tree is retained on the stack. All
+//! secret-index selections are full-width masked scans.
 
 use crate::blake3::{derive_key, wh512};
+use crate::ct::CtChoice;
 use crate::field::F288;
 use crate::{COMMITMENT_LEN, FIELD_BYTES, SALT_LEN, TREE_DEPTH};
 
-const LEAF_COUNT: usize = 1 << TREE_DEPTH;
-const LOWER_NODES: usize = 256;
-const UPPER_NODES: usize = 255;
-const LEAF_BASE: usize = (1 << TREE_DEPTH) - 1;
 const COPATH_LEN: usize = TREE_DEPTH;
-
 const LEAF_LABEL: &[u8] = b"VORB3-GGM-LEAF-V1";
 const NODE_LABEL: &[u8] = b"VORB3-GGM-NODE-V1";
 const EXPAND_LABEL: &[u8] = b"VORB3-GGM-EXPAND-V1";
 
-/// A fully expanded GGM tree with its Merkle root.
-pub struct GgmTree {
-    lower: [[u8; FIELD_BYTES]; LOWER_NODES],
-    upper: [[u8; FIELD_BYTES]; UPPER_NODES],
-    root: [u8; COMMITMENT_LEN],
+/// Computes a tree root in one streaming left-to-right pass.
+#[must_use]
+pub fn tree_root(
+    root_seed: [u8; FIELD_BYTES],
+    tree_index: u16,
+    salt: &[u8; SALT_LEN],
+    pk_hash: &[u8; COMMITMENT_LEN],
+) -> [u8; COMMITMENT_LEN] {
+    let mut builder = RootBuilder {
+        tree_index,
+        salt,
+        pk_hash,
+        stack: [[0u8; COMMITMENT_LEN]; TREE_DEPTH + 1],
+    };
+    builder.visit(root_seed, 0, 0);
+    builder
+        .stack
+        .get(TREE_DEPTH)
+        .copied()
+        .unwrap_or([0u8; COMMITMENT_LEN])
 }
 
-impl GgmTree {
-    /// Builds one tree and its Merkle root.
-    pub fn build(
-        root_seed: [u8; FIELD_BYTES],
-        tree_index: u16,
-        salt: &[u8; SALT_LEN],
-        pk_hash: &[u8; COMMITMENT_LEN],
-    ) -> Self {
-        let mut tree = Self {
-            lower: [[0u8; FIELD_BYTES]; LOWER_NODES],
-            upper: [[0u8; FIELD_BYTES]; UPPER_NODES],
-            root: [0u8; COMMITMENT_LEN],
-        };
-        tree.set_node(0, root_seed);
+struct RootBuilder<'a> {
+    tree_index: u16,
+    salt: &'a [u8; SALT_LEN],
+    pk_hash: &'a [u8; COMMITMENT_LEN],
+    stack: [[u8; COMMITMENT_LEN]; TREE_DEPTH + 1],
+}
 
-        for level in 0..TREE_DEPTH {
-            let count = 1usize << level;
-            let base = (1usize << level).wrapping_sub(1);
-            let child_base = (1usize << level.wrapping_add(1)).wrapping_sub(1);
-            for index in 0..count {
-                let parent = tree.node(base.wrapping_add(index));
-                let (left, right) = expand_child(
-                    parent,
-                    tree_index,
-                    u8::try_from(level).unwrap_or(0),
-                    u16::try_from(index).unwrap_or(0),
-                    salt,
-                    pk_hash,
-                );
-                let left_index = child_base.wrapping_add(index.wrapping_mul(2));
-                let right_index = left_index.wrapping_add(1);
-                tree.set_node(left_index, left);
-                tree.set_node(right_index, right);
-            }
-        }
-
-        let mut hashes = [[0u8; COMMITMENT_LEN]; LEAF_COUNT];
-        for index in 0..LEAF_COUNT {
-            let seed = tree.node(LEAF_BASE.wrapping_add(index));
+impl RootBuilder<'_> {
+    fn visit(&mut self, seed: [u8; FIELD_BYTES], level: usize, index: u16) {
+        if level == TREE_DEPTH {
             let share = leaf_share(seed);
-            let commitment = leaf_commitment(
-                tree_index,
-                u16::try_from(index).unwrap_or(0),
-                share,
-                salt,
-                pk_hash,
-            );
-            if let Some(slot) = hashes.get_mut(index) {
-                *slot = commitment;
-            }
+            let commitment =
+                leaf_commitment(self.tree_index, index, share, self.salt, self.pk_hash);
+            self.add_leaf(commitment, index);
+            return;
         }
-
-        let mut count = LEAF_COUNT;
-        let mut level = TREE_DEPTH;
-        while level > 0 {
-            count >>= 1;
-            for index in 0..count {
-                let left = hashes
-                    .get(index.wrapping_mul(2))
-                    .copied()
-                    .unwrap_or([0u8; COMMITMENT_LEN]);
-                let right = hashes
-                    .get(index.wrapping_mul(2).wrapping_add(1))
-                    .copied()
-                    .unwrap_or([0u8; COMMITMENT_LEN]);
-                let node = node_hash(
-                    tree_index,
-                    u8::try_from(level.wrapping_sub(1)).unwrap_or(0),
-                    u16::try_from(index).unwrap_or(0),
-                    left,
-                    right,
-                    salt,
-                    pk_hash,
-                );
-                if let Some(slot) = hashes.get_mut(index) {
-                    *slot = node;
-                }
-            }
-            level = level.wrapping_sub(1);
-        }
-
-        tree.root = hashes.first().copied().unwrap_or([0u8; COMMITMENT_LEN]);
-        tree
+        let (left, right) = expand_child(
+            seed,
+            self.tree_index,
+            u8::try_from(level).unwrap_or(0),
+            index,
+            self.salt,
+            self.pk_hash,
+        );
+        self.visit(left, level.wrapping_add(1), index.wrapping_mul(2));
+        self.visit(
+            right,
+            level.wrapping_add(1),
+            index.wrapping_mul(2).wrapping_add(1),
+        );
     }
 
-    #[inline]
-    fn node(&self, index: usize) -> [u8; FIELD_BYTES] {
-        if index < LOWER_NODES {
-            self.lower.get(index).copied().unwrap_or([0u8; FIELD_BYTES])
-        } else {
-            self.upper
-                .get(index.wrapping_sub(LOWER_NODES))
+    fn add_leaf(&mut self, commitment: [u8; COMMITMENT_LEN], leaf_index: u16) {
+        let mut hash = commitment;
+        let mut index = leaf_index;
+        let mut merge_level = 0usize;
+        while index & 1 == 1 {
+            let left = self
+                .stack
+                .get(merge_level)
                 .copied()
-                .unwrap_or([0u8; FIELD_BYTES])
+                .unwrap_or([0u8; COMMITMENT_LEN]);
+            let parent_index = index >> 1;
+            let node_level =
+                u8::try_from(TREE_DEPTH.wrapping_sub(1).wrapping_sub(merge_level)).unwrap_or(0);
+            hash = node_hash(
+                self.tree_index,
+                node_level,
+                parent_index,
+                left,
+                hash,
+                self.salt,
+                self.pk_hash,
+            );
+            index >>= 1;
+            merge_level = merge_level.wrapping_add(1);
+        }
+        if let Some(slot) = self.stack.get_mut(merge_level) {
+            *slot = hash;
         }
     }
+}
 
-    #[inline]
-    fn set_node(&mut self, index: usize, value: [u8; FIELD_BYTES]) {
-        if index < LOWER_NODES {
-            if let Some(slot) = self.lower.get_mut(index) {
-                *slot = value;
-            }
-        } else if let Some(slot) = self.upper.get_mut(index.wrapping_sub(LOWER_NODES)) {
-            *slot = value;
-        }
-    }
-
-    /// Returns the Merkle root.
-    #[must_use]
-    #[inline]
-    pub const fn root(&self) -> [u8; COMMITMENT_LEN] {
-        self.root
-    }
-
-    /// Returns the hidden leaf share for `alpha`.
-    #[must_use]
-    #[inline]
-    pub fn hidden_leaf_share(&self, alpha: u8) -> F288 {
-        let index = LEAF_BASE.wrapping_add(usize::from(alpha));
-        leaf_share(self.node(index))
-    }
-
-    /// Returns the hidden leaf commitment for `alpha`.
-    #[must_use]
-    #[inline]
-    pub fn hidden_commitment(
-        &self,
-        tree_index: u16,
-        alpha: u8,
-        salt: &[u8; SALT_LEN],
-        pk_hash: &[u8; COMMITMENT_LEN],
-    ) -> [u8; COMMITMENT_LEN] {
-        leaf_commitment(
+/// Extracts the hidden leaf share, commitment, and copath without indexing by
+/// the secret hidden leaf.
+#[must_use]
+pub fn hidden_opening(
+    root_seed: [u8; FIELD_BYTES],
+    tree_index: u16,
+    alpha: u8,
+    salt: &[u8; SALT_LEN],
+    pk_hash: &[u8; COMMITMENT_LEN],
+) -> (F288, [u8; COMMITMENT_LEN], [[u8; FIELD_BYTES]; COPATH_LEN]) {
+    let mut parent = root_seed;
+    let mut copath = [[0u8; FIELD_BYTES]; COPATH_LEN];
+    for level in 0..TREE_DEPTH {
+        let parent_index =
+            u16::try_from(usize::from(alpha) >> (TREE_DEPTH.wrapping_sub(level))).unwrap_or(0);
+        let (left, right) = expand_child(
+            parent,
             tree_index,
-            u16::from(alpha),
-            self.hidden_leaf_share(alpha),
+            u8::try_from(level).unwrap_or(0),
+            parent_index,
             salt,
             pk_hash,
-        )
-    }
-
-    /// Extracts the eight sibling seeds for `alpha`, leaf level first.
-    #[must_use]
-    pub fn copath(&self, alpha: u8) -> [[u8; FIELD_BYTES]; COPATH_LEN] {
-        let mut copath = [[0u8; FIELD_BYTES]; COPATH_LEN];
-        for level in (1..=TREE_DEPTH).rev() {
-            let node_index = usize::from(alpha) >> (TREE_DEPTH.wrapping_sub(level));
-            let sibling = node_index ^ 1;
-            let base = (1usize << level).wrapping_sub(1);
-            let seed = self.node(base.wrapping_add(sibling));
-            let slot = TREE_DEPTH.wrapping_sub(level);
-            if let Some(dst) = copath.get_mut(slot) {
-                *dst = seed;
-            }
+        );
+        let shift = TREE_DEPTH.wrapping_sub(1).wrapping_sub(level);
+        let bit = u8::try_from((usize::from(alpha) >> shift) & 1).unwrap_or(0);
+        let choice = CtChoice::from_bit(bit);
+        let sibling = select_bytes(choice, right, left);
+        let child = select_bytes(choice, left, right);
+        if let Some(slot) = copath.get_mut(TREE_DEPTH.wrapping_sub(1).wrapping_sub(level)) {
+            *slot = sibling;
         }
-        copath
+        parent = child;
     }
+    let share = leaf_share(parent);
+    let commitment = leaf_commitment(tree_index, u16::from(alpha), share, salt, pk_hash);
+    (share, commitment, copath)
 }
 
 /// Reconstructs the Merkle root from the hidden leaf commitment and copath.
@@ -281,6 +232,19 @@ fn subtree_hash(
         salt,
         pk_hash,
     )
+}
+
+#[inline]
+fn select_bytes(
+    choice: CtChoice,
+    if_false: [u8; FIELD_BYTES],
+    if_true: [u8; FIELD_BYTES],
+) -> [u8; FIELD_BYTES] {
+    let mut out = [0u8; FIELD_BYTES];
+    for ((dst, left), right) in out.iter_mut().zip(if_false.iter()).zip(if_true.iter()) {
+        *dst = choice.select_u8(*left, *right);
+    }
+    out
 }
 
 #[inline]
@@ -387,7 +351,7 @@ fn append(buffer: &mut [u8], offset: &mut usize, data: &[u8]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{GgmTree, reconstruct_root};
+    use super::{hidden_opening, reconstruct_root, tree_root};
     use crate::field::F288;
 
     const ROOT: [u8; 64] = [
@@ -466,11 +430,10 @@ mod tests {
         for (index, byte) in pk_hash.iter_mut().enumerate() {
             *byte = u8::try_from(index.wrapping_mul(3).wrapping_add(7) & 0xFF).unwrap_or(0);
         }
-        let tree = GgmTree::build(root_seed, 7, &salt, &pk_hash);
-        assert_eq!(tree.root(), ROOT);
-        assert_eq!(tree.hidden_leaf_share(42), F288::from_bytes(U));
-        assert_eq!(tree.hidden_commitment(7, 42, &salt, &pk_hash), COM);
-        let copath = tree.copath(42);
+        assert_eq!(tree_root(root_seed, 7, &salt, &pk_hash), ROOT);
+        let (u, com, copath) = hidden_opening(root_seed, 7, 42, &salt, &pk_hash);
+        assert_eq!(u, F288::from_bytes(U));
+        assert_eq!(com, COM);
         assert_eq!(copath, CP);
         assert_eq!(reconstruct_root(COM, &copath, 7, 42, &salt, &pk_hash), ROOT);
     }

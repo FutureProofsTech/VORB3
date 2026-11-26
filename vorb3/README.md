@@ -6,7 +6,8 @@ Frozen profile: **SP-288/35** — GF(2^288), 35 GGM trees, depth 8, 15 rounds,
 This is the production `no_std` library. Phase 1 (repository/toolchain/lint/
 zero-dependency gate), Phase 2 (constant-time/GF(2^288)), Phase 3
 (BLAKE3/WH512), Phase 4 (Rain-SP1), Phase 5 (GGM/Merkle/transcript), and Phase 6
-(QuickSilver/sign/verify) are implemented. Hardening and attack campaigns follow.
+(QuickSilver/sign/verify) and Phase 7 hardening are implemented at checkpoint.
+Attack campaigns and cryptanalysis follow.
 
 - No `std`, no `alloc`.
 - `forbid(unsafe_code)`.

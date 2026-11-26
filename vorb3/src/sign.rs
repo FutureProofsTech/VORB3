@@ -2,11 +2,12 @@
 
 use crate::blake3::{DeriveKeyHasher, Wh512Hasher, derive_key};
 use crate::field::F288;
-use crate::ggm::{GgmTree, reconstruct_root};
+use crate::ggm::{hidden_opening, reconstruct_root, tree_root};
 use crate::keys::{Error, ExpandedSecretKey, PublicKey};
 use crate::rain::{self, RainConstants, RainWitness};
 use crate::signature::Signature;
 use crate::transcript::Transcript;
+use crate::zeroize::wipe_bytes;
 use crate::{COMMITMENT_LEN, FIELD_BYTES, H2_LEN, SALT_LEN, SIGNATURE_LEN, TREE_COUNT, TREE_DEPTH};
 
 const SALT_OFF: usize = 0;
@@ -32,6 +33,24 @@ pub fn sign(
     secret: &ExpandedSecretKey,
     entropy: &[u8; 32],
 ) -> Result<Signature, Error> {
+    let mut signature = [0u8; SIGNATURE_LEN];
+    sign_into(message, secret, entropy, &mut signature)?;
+    Signature::from_bytes(&signature)
+}
+
+/// Signs into a caller-provided fixed buffer, avoiding a return copy.
+///
+/// # Errors
+///
+/// Returns [`Error::InvalidSecretKey`] for a degenerate key or
+/// [`Error::InvalidSignature`] if fixed-size assembly fails.
+#[inline]
+pub fn sign_into(
+    message: &[u8],
+    secret: &ExpandedSecretKey,
+    entropy: &[u8; 32],
+    signature: &mut [u8; SIGNATURE_LEN],
+) -> Result<(), Error> {
     let constants = RainConstants::derive();
     let (ct, witness) = rain::encrypt(secret.sk, secret.pt, &constants);
     if ct.is_zero() {
@@ -39,7 +58,7 @@ pub fn sign(
     }
     let public_key = public_key_from_parts(secret.pt, ct)?;
     let pk_hash = public_key_hash(&public_key);
-    let master = master_seed(secret, &public_key, message, entropy);
+    let mut master = master_seed(secret, &public_key, message, entropy);
     let salt = salt_from_master(&master);
     let roots_bytes = derive_roots(&master, &salt, &pk_hash);
 
@@ -50,30 +69,40 @@ pub fn sign(
     transcript.absorb("ROOTS", &roots_bytes);
     let (delta, chi, h2) = squeeze_challenges(&mut transcript);
 
-    let mut signature = [0u8; SIGNATURE_LEN];
-    copy_at(&mut signature, SALT_OFF, &salt);
-    copy_at(&mut signature, H2_OFF, &h2);
-    let (u_values, q_values) = fill_openings(&master, &salt, &pk_hash, &h2, &mut signature);
-    let (wire_w, tags) = fill_wires(
-        secret.sk,
-        &witness,
-        &u_values,
-        &q_values,
-        delta,
-        &mut signature,
-    );
-    let (a0, a1, out_tag) = prove(&witness, &wire_w, &tags, chi, &constants);
-    copy_at(&mut signature, OUT_TAG_OFF, &out_tag.to_bytes());
+    copy_at(signature, SALT_OFF, &salt);
+    copy_at(signature, H2_OFF, &h2);
+    let (mut u_values, mut q_values) = fill_openings(&master, &salt, &pk_hash, &h2, signature);
+    let (mut wire_w, mut tags) =
+        fill_wires(secret.sk, &witness, &u_values, &q_values, delta, signature);
+    let (mut a0, mut a1, out_tag) = prove(&witness, &wire_w, &tags, chi, &constants);
+    copy_at(signature, OUT_TAG_OFF, &out_tag.to_bytes());
 
-    let u_star = u_values.get(MASK_TREE).copied().unwrap_or(F288::ZERO);
+    let mut u_star = u_values.get(MASK_TREE).copied().unwrap_or(F288::ZERO);
     let q_star = q_values.get(MASK_TREE).copied().unwrap_or(F288::ZERO);
-    let v_star = q_star.add_value(u_star.mul_value(delta));
+    let mut v_star = q_star.add_value(u_star.mul_value(delta));
     let masked_u = a0.add_value(v_star);
     let masked_v = a1.add_value(u_star);
-    copy_at(&mut signature, U_OFF, &masked_u.to_bytes());
-    copy_at(&mut signature, V_OFF, &masked_v.to_bytes());
+    copy_at(signature, U_OFF, &masked_u.to_bytes());
+    copy_at(signature, V_OFF, &masked_v.to_bytes());
 
-    Signature::from_bytes(&signature)
+    a0.wipe();
+    a1.wipe();
+    u_star.wipe();
+    v_star.wipe();
+    for value in &mut u_values {
+        value.wipe();
+    }
+    for value in &mut q_values {
+        value.wipe();
+    }
+    for value in &mut wire_w {
+        value.wipe();
+    }
+    for value in &mut tags {
+        value.wipe();
+    }
+    wipe_bytes(&mut master);
+    Ok(())
 }
 
 /// Verifies a signature. All signature-content failures return
@@ -84,16 +113,25 @@ pub fn sign(
 /// Returns [`Error::InvalidSignature`] for a malformed or invalid signature.
 #[inline]
 pub fn verify(message: &[u8], public_key: &PublicKey, signature: &Signature) -> Result<(), Error> {
-    let bytes = signature.as_bytes();
+    verify_bytes(message, public_key, signature.as_bytes())
+}
+
+/// Verifies a raw fixed-size signature buffer.
+///
+/// # Errors
+///
+/// Returns [`Error::InvalidSignature`] for any signature-content failure.
+#[inline]
+pub fn verify_bytes(
+    message: &[u8],
+    public_key: &PublicKey,
+    bytes: &[u8; SIGNATURE_LEN],
+) -> Result<(), Error> {
     let constants = RainConstants::derive();
-    let Some(salt) = read::<SALT_LEN>(bytes, SALT_OFF) else {
-        return Err(Error::InvalidSignature);
-    };
-    let Some(h2) = read::<H2_LEN>(bytes, H2_OFF) else {
-        return Err(Error::InvalidSignature);
-    };
+    let salt = read::<SALT_LEN>(bytes, SALT_OFF).unwrap_or([0u8; SALT_LEN]);
+    let h2 = read::<H2_LEN>(bytes, H2_OFF).unwrap_or([0u8; H2_LEN]);
     let pk_hash = public_key_hash(public_key);
-    let roots_bytes = reconstruct_roots(bytes, &salt, &pk_hash, &h2)?;
+    let roots_bytes = reconstruct_roots(bytes, &salt, &pk_hash, &h2);
 
     let mut transcript = Transcript::new();
     transcript.absorb("PK", public_key.as_bytes());
@@ -101,12 +139,14 @@ pub fn verify(message: &[u8], public_key: &PublicKey, signature: &Signature) -> 
     transcript.absorb("MSG", message);
     transcript.absorb("ROOTS", &roots_bytes);
     let (delta, chi, h2_check) = squeeze_challenges(&mut transcript);
-    if h2_check != h2 {
-        return Err(Error::InvalidSignature);
+    let h2_ok = h2_check == h2;
+    let q_open = opened_wires(bytes, delta);
+    let proof_ok = check_proof(public_key, bytes, delta, chi, &q_open, &constants);
+    if h2_ok && proof_ok {
+        Ok(())
+    } else {
+        Err(Error::InvalidSignature)
     }
-
-    let q_open = opened_wires(bytes, delta)?;
-    check_proof(public_key, bytes, delta, chi, &q_open, &constants)
 }
 
 #[inline]
@@ -162,13 +202,13 @@ fn derive_roots(
     let mut roots = [0u8; TREE_COUNT * COMMITMENT_LEN];
     for index in 0..TREE_COUNT {
         let tree_index = u16::try_from(index).unwrap_or(0);
-        let tree = GgmTree::build(
+        let root = tree_root(
             tree_root_seed(master, tree_index),
             tree_index,
             salt,
             pk_hash,
         );
-        copy_at(&mut roots, index.wrapping_mul(COMMITMENT_LEN), &tree.root());
+        copy_at(&mut roots, index.wrapping_mul(COMMITMENT_LEN), &root);
     }
     roots
 }
@@ -185,13 +225,13 @@ fn fill_openings(
     for index in 0..TREE_COUNT {
         let tree_index = u16::try_from(index).unwrap_or(0);
         let alpha = h2.get(index).copied().unwrap_or(0);
-        let tree = GgmTree::build(
+        let (share, commitment, copath) = hidden_opening(
             tree_root_seed(master, tree_index),
             tree_index,
+            alpha,
             salt,
             pk_hash,
         );
-        let copath = tree.copath(alpha);
         for level in 0..TREE_DEPTH {
             let offset = COPATH_OFF
                 .wrapping_add(index.wrapping_mul(288))
@@ -200,14 +240,13 @@ fn fill_openings(
                 copy_at(signature, offset, seed);
             }
         }
-        let commitment = tree.hidden_commitment(tree_index, alpha, salt, pk_hash);
         copy_at(
             signature,
             HIDDEN_OFF.wrapping_add(index.wrapping_mul(COMMITMENT_LEN)),
             &commitment,
         );
         if let Some(slot) = u_values.get_mut(index) {
-            *slot = tree.hidden_leaf_share(alpha);
+            *slot = share;
         }
         if let Some(slot) = q_values.get_mut(index) {
             *slot = field_from_commitment(&commitment);
@@ -246,7 +285,7 @@ fn fill_wires(
         let u = u_values.get(index).copied().unwrap_or(F288::ZERO);
         let q = q_values.get(index).copied().unwrap_or(F288::ZERO);
         let w = wire_w.get(index).copied().unwrap_or(F288::ZERO);
-        let d = u.add_value(w);
+        let mut d = u.add_value(w);
         let tag = q.add_value(u.mul_value(delta));
         if let Some(slot) = tags.get_mut(index) {
             *slot = tag;
@@ -256,6 +295,7 @@ fn fill_wires(
             WIRE_D_OFF.wrapping_add(index.wrapping_mul(FIELD_BYTES)),
             &d.to_bytes(),
         );
+        d.wipe();
     }
     (wire_w, tags)
 }
@@ -331,25 +371,23 @@ fn reconstruct_roots(
     salt: &[u8; SALT_LEN],
     pk_hash: &[u8; COMMITMENT_LEN],
     h2: &[u8; H2_LEN],
-) -> Result<[u8; TREE_COUNT * COMMITMENT_LEN], Error> {
+) -> [u8; TREE_COUNT * COMMITMENT_LEN] {
     let mut roots = [0u8; TREE_COUNT * COMMITMENT_LEN];
     for tree_index in 0..TREE_COUNT {
-        let Some(hidden) = read::<COMMITMENT_LEN>(
+        let hidden = read::<COMMITMENT_LEN>(
             bytes,
             HIDDEN_OFF.wrapping_add(tree_index.wrapping_mul(COMMITMENT_LEN)),
-        ) else {
-            return Err(Error::InvalidSignature);
-        };
+        )
+        .unwrap_or([0u8; COMMITMENT_LEN]);
         let mut copath = [[0u8; FIELD_BYTES]; TREE_DEPTH];
         for level in 0..TREE_DEPTH {
-            let Some(seed) = read::<FIELD_BYTES>(
+            let seed = read::<FIELD_BYTES>(
                 bytes,
                 COPATH_OFF
                     .wrapping_add(tree_index.wrapping_mul(288))
                     .wrapping_add(level.wrapping_mul(FIELD_BYTES)),
-            ) else {
-                return Err(Error::InvalidSignature);
-            };
+            )
+            .unwrap_or([0u8; FIELD_BYTES]);
             if let Some(slot) = copath.get_mut(level) {
                 *slot = seed;
             }
@@ -365,10 +403,9 @@ fn reconstruct_roots(
         );
         copy_at(&mut roots, tree_index.wrapping_mul(COMMITMENT_LEN), &root);
     }
-    Ok(roots)
+    roots
 }
 
-#[inline]
 fn squeeze_challenges(transcript: &mut Transcript) -> (F288, F288, [u8; H2_LEN]) {
     let mut delta_bytes = [0u8; FIELD_BYTES];
     let mut chi_bytes = [0u8; FIELD_BYTES];
@@ -383,28 +420,26 @@ fn squeeze_challenges(transcript: &mut Transcript) -> (F288, F288, [u8; H2_LEN])
     )
 }
 
-fn opened_wires(bytes: &[u8; SIGNATURE_LEN], delta: F288) -> Result<[F288; SECRET_WIRES], Error> {
+fn opened_wires(bytes: &[u8; SIGNATURE_LEN], delta: F288) -> [F288; SECRET_WIRES] {
     let mut q_open = [F288::ZERO; SECRET_WIRES];
     for index in 0..SECRET_WIRES {
-        let Some(commitment) = read::<COMMITMENT_LEN>(
+        let commitment = read::<COMMITMENT_LEN>(
             bytes,
             HIDDEN_OFF.wrapping_add(index.wrapping_mul(COMMITMENT_LEN)),
-        ) else {
-            return Err(Error::InvalidSignature);
-        };
-        let Some(opening) = read::<FIELD_BYTES>(
+        )
+        .unwrap_or([0u8; COMMITMENT_LEN]);
+        let opening = read::<FIELD_BYTES>(
             bytes,
             WIRE_D_OFF.wrapping_add(index.wrapping_mul(FIELD_BYTES)),
-        ) else {
-            return Err(Error::InvalidSignature);
-        };
+        )
+        .unwrap_or([0u8; FIELD_BYTES]);
         let q = field_from_commitment(&commitment);
         let d = F288::from_bytes(opening);
         if let Some(slot) = q_open.get_mut(index) {
             *slot = q.add_value(d.mul_value(delta));
         }
     }
-    Ok(q_open)
+    q_open
 }
 
 fn check_proof(
@@ -414,23 +449,16 @@ fn check_proof(
     chi: F288,
     q_open: &[F288; SECRET_WIRES],
     constants: &RainConstants,
-) -> Result<(), Error> {
-    let Some(hidden_mask) = read::<COMMITMENT_LEN>(
+) -> bool {
+    let hidden_mask = read::<COMMITMENT_LEN>(
         bytes,
         HIDDEN_OFF.wrapping_add(MASK_TREE.wrapping_mul(COMMITMENT_LEN)),
-    ) else {
-        return Err(Error::InvalidSignature);
-    };
+    )
+    .unwrap_or([0u8; COMMITMENT_LEN]);
     let q_star = field_from_commitment(&hidden_mask);
-    let Some(u_field) = read::<FIELD_BYTES>(bytes, U_OFF) else {
-        return Err(Error::InvalidSignature);
-    };
-    let Some(v_field) = read::<FIELD_BYTES>(bytes, V_OFF) else {
-        return Err(Error::InvalidSignature);
-    };
-    let Some(out_tag_bytes) = read::<FIELD_BYTES>(bytes, OUT_TAG_OFF) else {
-        return Err(Error::InvalidSignature);
-    };
+    let u_field = read::<FIELD_BYTES>(bytes, U_OFF).unwrap_or([0u8; FIELD_BYTES]);
+    let v_field = read::<FIELD_BYTES>(bytes, V_OFF).unwrap_or([0u8; FIELD_BYTES]);
+    let out_tag_bytes = read::<FIELD_BYTES>(bytes, OUT_TAG_OFF).unwrap_or([0u8; FIELD_BYTES]);
     let masked_u = F288::from_bytes(u_field);
     let masked_v = F288::from_bytes(v_field);
     let out_tag = F288::from_bytes(out_tag_bytes);
@@ -481,13 +509,9 @@ fn check_proof(
     }
 
     let q_ct = last_diffusion.mul_value(last_q_y).add_value(q_sk);
-    if q_ct != out_tag.add_value(public_key.ct().mul_value(delta)) {
-        return Err(Error::InvalidSignature);
-    }
-    if batch.add_value(q_star) != masked_u.add_value(masked_v.mul_value(delta)) {
-        return Err(Error::InvalidSignature);
-    }
-    Ok(())
+    let output_ok = q_ct == out_tag.add_value(public_key.ct().mul_value(delta));
+    let mask_ok = batch.add_value(q_star) == masked_u.add_value(masked_v.mul_value(delta));
+    output_ok && mask_ok
 }
 
 #[inline]

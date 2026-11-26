@@ -10,7 +10,6 @@ use core::hint::black_box;
 ///
 /// The `black_box` barrier prevents dead-store elimination of the wipe. This is
 /// best-effort zeroization, not a proof about registers or compiler temporaries.
-#[allow(dead_code)] // used by secret types introduced in later phases.
 #[inline]
 pub fn wipe_bytes(bytes: &mut [u8]) {
     bytes.fill(0);

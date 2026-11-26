@@ -1,12 +1,14 @@
-# VORB3 — Phase 1–6 Checkpoint
+# VORB3 — Phase 1–7 Checkpoint
 
 **Date:** 2026-11-26
 **Profile:** **SP-288/35 frozen** — GF(2^288), 35 trees, depth 8, 15 rounds,
 13,672-byte signature.
 **Status:** Phase 1–6 are implemented at checkpoint: field/CT, BLAKE3/WH512,
 Rain-SP1, GGM/Merkle/transcript, key types, QuickSilver proof, sign/verify.
-The end-to-end SP-288/35 signature KAT matches the independent Python model
-exactly. Hardening and attack campaigns remain.
+Phase 7 has added streaming GGM/Merkle, masked hidden-leaf/copath extraction,
+zeroization of sign temporaries, fixed-work verification, negative tests, and
+64 KiB stack smoke tests. The end-to-end SP-288/35 signature KAT still matches
+the independent Python model exactly.
 
 ---
 
@@ -135,6 +137,25 @@ inverse self-consistency: 2,000 values       PASS
 - KAT files: `kat/seed_sp288_35.bin`, `kat/pk_sp288_35.bin`,
   `kat/sign_sp288_35.bin` (SHA-256
   `c073c7e3f7b31192ba1932f9ed990b32bc4f321453347a23837803ef4fa9b68b`).
+
+## 3.5 Phase 7 — Hardening checkpoint
+
+- **Streaming GGM/Merkle:** signing no longer retains a full 511-node tree or a
+  256-hash level. `tree_root` uses a depth-first traversal and a 9-slot Merkle
+  stack; `hidden_opening` follows the path with masked child/sibling selection.
+- **Constant-time hidden selection:** `hidden_opening` selects the path child
+  and copath sibling with `CtChoice` masks; no secret index.
+- **Verification fixed-work:** h2, proof batch, output tag, and mask checks are
+  all evaluated; one uniform `InvalidSignature` is returned.
+- **Zeroization:** `RainWitness`, `GgmTree` (removed from the sign path), and
+  sign temporaries are wiped; `master`, `u/q`, `wire_w`, `tags`, `a0/a1`,
+  `u*/v*`, and per-wire openings are wiped.
+- **Negative tests:** sampled bit flips across every field, truncation, trailing
+  bytes, all-zero signature, wrong message, wrong public key.
+- **Stack:** sign and verify each pass in a 64 KiB thread. The 32 KiB target is
+  **not yet met**; it remains an optimisation goal, not a claim.
+- **KAT:** signature SHA-256 remains
+  `c073c7e3f7b31192ba1932f9ed990b32bc4f321453347a23837803ef4fa9b68b`.
 
 ## 4. What is not done yet
 
