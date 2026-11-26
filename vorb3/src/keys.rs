@@ -37,13 +37,10 @@ impl PublicKey {
     pub fn from_secret(secret: &ExpandedSecretKey) -> Result<Self, Error> {
         let constants = rain::RainConstants::derive();
         let (ct, _witness) = rain::encrypt(secret.sk, secret.pt, &constants);
-        if ct.is_zero() {
-            return Err(Error::InvalidSecretKey);
-        }
         let mut bytes = [0u8; 72];
         write_field(&mut bytes, 0, secret.pt);
         write_field(&mut bytes, 36, ct);
-        Self::from_bytes(bytes)
+        Self::from_bytes(bytes).map_err(|_| Error::InvalidSecretKey)
     }
 
     /// Returns the canonical 72-byte encoding.
@@ -181,7 +178,8 @@ pub enum Error {
 fn read_field(bytes: &[u8; 72], offset: usize) -> Option<F288> {
     let end = offset.checked_add(36)?;
     let source = bytes.get(offset..end)?;
-    let array = <[u8; 36]>::try_from(source).ok()?;
+    let mut array = [0u8; 36];
+    array.copy_from_slice(source);
     Some(F288::from_bytes(array))
 }
 
@@ -203,7 +201,7 @@ fn nonzero(value: F288) -> F288 {
 
 #[cfg(test)]
 mod tests {
-    use super::{ExpandedSecretKey, SecretKey};
+    use super::{ExpandedSecretKey, F288, SecretKey, read_field, write_field};
 
     #[test]
     fn compact_key_wipe_clears_seed() {
@@ -220,5 +218,17 @@ mod tests {
         assert!(expanded.sk.is_zero());
         assert!(expanded.pt.is_zero());
         assert!(expanded.seed.iter().all(|byte| *byte == 0));
+    }
+
+    #[test]
+    fn field_io_bounds_fail_closed() {
+        let bytes = [0u8; 72];
+        assert!(read_field(&bytes, usize::MAX).is_none());
+        assert!(read_field(&bytes, 70).is_none());
+        let mut output = [0u8; 72];
+        write_field(&mut output, usize::MAX, F288::ONE);
+        write_field(&mut output, 70, F288::ONE);
+        write_field(&mut output, 0, F288::ONE);
+        assert_eq!(read_field(&output, 0), Some(F288::ONE));
     }
 }

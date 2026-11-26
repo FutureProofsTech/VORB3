@@ -1,6 +1,6 @@
 //! VORB3-SP1 signing and verification.
 
-use crate::blake3::{DeriveKeyHasher, Wh512Hasher, derive_key};
+use crate::blake3::{DeriveKeyHasher, Wh512Hasher, derive_key_words};
 use crate::field::F288;
 use crate::ggm::{hidden_opening, reconstruct_root, tree_root};
 use crate::keys::{Error, ExpandedSecretKey, PublicKey};
@@ -67,10 +67,7 @@ pub fn sign_into(
 ) -> Result<(), Error> {
     let constants = RainConstants::derive();
     let (ct, witness) = rain::encrypt(secret.sk, secret.pt, &constants);
-    if ct.is_zero() {
-        return Err(Error::InvalidSecretKey);
-    }
-    let public_key = public_key_from_parts(secret.pt, ct)?;
+    let public_key = public_key_from_parts(secret.pt, ct).map_err(|_| Error::InvalidSecretKey)?;
     let pk_hash = public_key_hash(&public_key);
     let mut master = master_seed(secret, &public_key, message, entropy);
     let salt = salt_from_master(&master);
@@ -550,26 +547,20 @@ fn gate(a_w: F288, a_v: F288, b_w: F288, b_v: F288, c_v: F288) -> (F288, F288) {
 #[inline]
 fn tree_root_seed(master: &[u8; FIELD_BYTES], tree_index: u16) -> [u8; FIELD_BYTES] {
     let mut data = [0u8; FIELD_BYTES + 2];
-    if let Some(dst) = data.get_mut(..FIELD_BYTES) {
-        dst.copy_from_slice(master);
-    }
-    if let Some(dst) = data.get_mut(FIELD_BYTES..) {
-        dst.copy_from_slice(&tree_index.to_le_bytes());
-    }
+    let (master_slot, index_slot) = data.split_at_mut(FIELD_BYTES);
+    master_slot.copy_from_slice(master);
+    index_slot.copy_from_slice(&tree_index.to_le_bytes());
     let mut seed = [0u8; FIELD_BYTES];
-    derive_key("VORB3-TREE-ROOT-V1", &data, &mut seed);
+    derive_key_words(crate::ggm::TREE_ROOT_KEY, &data, &mut seed);
     wipe_bytes(&mut data);
     seed
 }
 
 #[inline]
 fn field_from_commitment(commitment: &[u8; COMMITMENT_LEN]) -> F288 {
-    let Some(source) = commitment.get(..FIELD_BYTES) else {
-        return F288::ZERO;
-    };
-    let Ok(array) = <[u8; FIELD_BYTES]>::try_from(source) else {
-        return F288::ZERO;
-    };
+    let (source, _rest) = commitment.split_at(FIELD_BYTES);
+    let mut array = [0u8; FIELD_BYTES];
+    array.copy_from_slice(source);
     F288::from_bytes(array)
 }
 
@@ -593,7 +584,9 @@ fn copy_at(destination: &mut [u8], offset: usize, source: &[u8]) {
 fn read<const N: usize>(bytes: &[u8], offset: usize) -> Option<[u8; N]> {
     let end = offset.checked_add(N)?;
     let source = bytes.get(offset..end)?;
-    <[u8; N]>::try_from(source).ok()
+    let mut array = [0u8; N];
+    array.copy_from_slice(source);
+    Some(array)
 }
 
 #[inline]
@@ -603,6 +596,26 @@ fn write_field(bytes: &mut [u8; 72], offset: usize, value: F288) {
     };
     if let Some(slot) = bytes.get_mut(offset..end) {
         slot.copy_from_slice(&value.to_bytes());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{copy_at, read, write_field};
+    use crate::field::F288;
+
+    #[test]
+    fn bounds_helpers_fail_closed() {
+        let mut buffer = [0u8; 4];
+        copy_at(&mut buffer, usize::MAX, &[1]);
+        copy_at(&mut buffer, 3, &[1, 2]);
+        assert_eq!(read::<4>(&[0u8; 4], usize::MAX), None);
+        assert_eq!(read::<4>(&[0u8; 4], 3), None);
+        let mut field_bytes = [0u8; 72];
+        write_field(&mut field_bytes, usize::MAX, F288::ONE);
+        write_field(&mut field_bytes, 70, F288::ONE);
+        write_field(&mut field_bytes, 0, F288::ONE);
+        assert_eq!(read::<36>(&field_bytes, 0), Some(F288::ONE.to_bytes()));
     }
 }
 

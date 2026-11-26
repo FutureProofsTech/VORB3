@@ -62,7 +62,7 @@ fn sign_in_32k_stack_heap_output() {
 
 #[test]
 fn sign_in_64k_stack_with_stack_output() {
-    run_on_stack_bytes(64 * 1024, || {
+    run_on_stack_bytes(configured_stack().max(64 * 1024), || {
         let seed: [u8; 36] = *SEED;
         let compact = SecretKey::from_seed(seed);
         let expanded = ExpandedSecretKey::from_seed(&compact);

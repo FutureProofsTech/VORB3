@@ -18,12 +18,11 @@ signature bytes:       13,672
 single-bit mutations:  109,376
 accepted mutations:    0
 result:                BITFLIP PASS
-final wall:            4m46s (user CPU 59m28s, 16 workers)
+final wall:            1m41s (user CPU 20m01s, 16 workers)
 ```
 
-The sweep was re-run on the final release binary after the Phase 7
-stack/zeroization refactor and again rejected every single-bit mutation of the
-KAT signature.
+The sweep was re-run on the final optimized release binary and again rejected
+every single-bit mutation of the KAT signature.
 
 ### 1.2 Structural negative tests
 
@@ -109,9 +108,9 @@ wipes are best-effort with `black_box` barriers.
 
 ```text
 n = 20,000
-mean class A = 34,904,530 ns
-mean class B = 34,908,566 ns
-Welch t = -0.494
+mean class A = 7,012,362 ns
+mean class B = 7,013,110 ns
+Welch t = -0.251
 ```
 
 ### 4.2 Verification
@@ -121,16 +120,16 @@ signature:
 
 ```text
 n = 20,000
-mean class A = 19,183,474 ns
-mean class B = 19,186,377 ns
-Welch t = -0.996
+mean class A = 6,287,703 ns
+mean class B = 6,288,356 ns
+Welch t = -0.266
 ```
 
 Both campaigns are below the `|t| < 4.5` threshold. The means differ by about
 0.01%, consistent with no key/signature-class timing split at this sample size.
 
-The 50M-sample target was not run: at measured release rates it would take
-about 20 days for signing alone on one core. This is a measured, reproducible
+The 50M-sample target was not run: at optimized release rates it would take
+about 4 days for signing alone on one core. This is a measured, reproducible
 20k-sample campaign, not a claim that all microarchitectural leakage is absent.
 
 Verification is fixed-work: the h2 check, root reconstruction, wire openings,
@@ -146,18 +145,18 @@ accept/reject branch.
 
 | Metric | fixed key | other key |
 |---|---:|---:|
-| I refs | 7,740,065,543 | 7,740,071,064 |
-| D refs | 2,114,285,317 | 2,114,290,587 |
-| D1 misses | 3,876 | 9,179 |
-| LLd misses | 3,005 | 3,005 |
-| Branches | 138,267,114 | 138,267,128 |
-| Mispredicts | 5,090,543 | 5,090,526 |
+| I refs | 2,022,190,854 | 2,022,196,375 |
+| D refs | 474,126,330 | 474,131,600 |
+| D1 misses | 6,681 | 3,573 |
+| LLd misses | 2,946 | 2,945 |
+| Branches | 21,773,272 | 21,773,286 |
+| Mispredicts | 721,641 | 721,840 |
 
 Instruction and branch counts differ by a handful out of billions; LLd misses
-are identical. D1-miss counts vary more (3,876 vs 9,179), consistent with code/
-data layout sensitivity; this is documented, not rounded to zero. Instrumented
-wall time was ~1.86/1.83 s per sign and ~1.55/1.52 s per verify under Valgrind;
-native release is ~35 ms/sign and ~19 ms/verify.
+differ by one. D1-miss counts vary with layout and are documented, not rounded
+to zero. Instrumented wall time was ~0.49/0.50 s per sign and ~0.45/0.46 s per
+verify under Valgrind; native optimized release is ~7.0 ms/sign and
+~6.3 ms/verify.
 
 ---
 
@@ -166,24 +165,24 @@ native release is ~35 ms/sign and ~19 ms/verify.
 Fresh release assembly (LTO disabled only for readable per-function output):
 
 ```text
-file: 8,784 lines
-hidden_opening:   339 lines, 3 conditional branches, 0 cmov, 5 calls
-tree_root:        398 lines, 9 conditional branches, 2 cmov, 6 calls
-verify_bytes:     701 lines, 3 conditional branches, 41 calls
-sign_into:      2,670 lines, 61 conditional branches, 77 calls
-mul_reduce:       331 lines, 7 conditional branches, 25 cmov
+file: 22,750 lines
+hidden_opening:   476 lines, 3 conditional branches, 0 cmov, 12 calls
+tree_root:        519 lines, 9 conditional branches, 2 cmov, 14 calls
+verify_bytes:     652 lines, 3 conditional branches, 38 calls
+sign_into:      2,556 lines, 60 conditional branches, 71 calls
+mul_reduce:       387 lines, 6 conditional branches, 0 cmov
 ```
 
 Manual source-to-assembly review:
 
-- `mul_reduce` branches are fixed multiplication/reduction loop bounds; the
-  reduction uses masked limb updates.
+- `mul_reduce` branches are fixed Horner/reduction loop bounds; the reduction
+  uses fixed shifted-word XORs.
 - `hidden_opening` branches are loop counters and public slice bounds; the
   hidden bit is consumed only through masked selection/shifts.
 - `tree_root` branches are the public DFS stack/level/index and bounds checks.
 - `verify_bytes` has only three conditional branches around fixed public
   control flow.
-- `sign_into`'s 61 branches come from inlined public loops, slice bounds, key
+- `sign_into`'s 60 branches come from inlined public loops, slice bounds, key
   validation, and the public ciphertext check; the field, GGM-selection, and
   Rain paths do not branch on secret witness values.
 

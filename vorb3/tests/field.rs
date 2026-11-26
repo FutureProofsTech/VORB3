@@ -81,3 +81,11 @@ fn field_laws_and_encoding() {
     wiped.wipe();
     assert!(wiped.is_zero());
 }
+
+#[test]
+fn field_operator_sub_and_debug() {
+    let a = F288::from_bytes(A);
+    let b = F288::from_bytes(B);
+    assert_eq!(a - b, a + b);
+    assert_eq!(format!("{a:?}"), "F288(..)");
+}

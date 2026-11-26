@@ -13,13 +13,15 @@ a release certificate and no external audit is claimed.
 | `THREAT-MODEL.md` | Assets, adversaries, trust boundaries |
 | `ASSURANCE.md` | Requirement → evidence matrix and Phase 7 status |
 | `SECURITY-CASE.md` | Security target, F-33 union bound, assumptions |
-| `DECISIONS.md` | ADRs D1–D22 and findings F-01–F-33 |
+| `DECISIONS.md` | ADRs D1–D23 and findings F-01–F-33 |
 | `PHASE0-REDTEAM.md` | Internal adversarial review |
 | `PHASE1-7-REPORT.md` | Phase 1–7 implementation and evidence checkpoint |
 | `PHASE7-ATTACK-REPORT.md` | Bit-flip, fuzz, stack, Kani, cachegrind, assembly |
 | `SIDE-CHANNEL.md` | Timing/cache/assembly measurement report |
 | `RAIN-CRYPTANALYSIS.md` | Rain-SP1 local cryptanalysis dossier |
 | `BENCHMARKS.md` | Full latency/throughput/memory/build benchmark report |
+| `OPTIMIZATIONS.md` | Field/BLAKE3/GGM optimization report and speedups |
+| `COVERAGE.md` | llvm-cov line/function/region coverage report |
 | `../model/vorb3_model.py` | Independent Python/py-blake3 model |
 | `../model/README.md` | Model usage and limitations |
 

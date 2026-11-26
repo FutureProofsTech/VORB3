@@ -19,15 +19,6 @@ use crate::ct::{CtChoice, ct_is_zero_u64};
 /// Number of 64-bit limbs in a field element.
 const LIMB_COUNT: usize = 5;
 
-/// Degree of the field polynomial.
-const FIELD_DEGREE: u32 = 288;
-
-/// Exponent bits of the product before reduction: 2 * 288 - 2 = 574.
-const HIGH_PRODUCT_BIT: u32 = 574;
-
-/// Public exponents of the irreducible polynomial, including the leading term.
-const POLY_OFFSETS: [u32; 5] = [0, 1, 10, 11, 288];
-
 /// An element of GF(2^288).
 ///
 /// Field values are secret-bearing. `Debug` is redacted; equality is
@@ -69,9 +60,8 @@ impl F288 {
                 *slot = u64::from_le_bytes(*chunk);
             }
         }
-        let Ok(top_word) = <[u8; 4]>::try_from(tail) else {
-            return Self { limbs };
-        };
+        let mut top_word = [0u8; 4];
+        top_word.copy_from_slice(tail);
         if let Some(slot) = limbs.get_mut(4) {
             *slot = u64::from(u32::from_le_bytes(top_word));
         }
@@ -156,10 +146,15 @@ impl F288 {
     }
 
     /// Squaring in GF(2^288).
+    ///
+    /// Bit interleaving expands each limb to even polynomial positions, so the
+    /// 5×5 carry-less product collapses to five independent spreads.
     #[must_use]
     #[inline]
     pub fn square(self) -> Self {
-        self.mul_value(self)
+        Self {
+            limbs: square_reduce(self.limbs),
+        }
     }
 
     /// Field inversion, with `0^-1 = 0`.
@@ -290,45 +285,97 @@ impl fmt::Debug for F288 {
 
 /// Carry-less multiplication of two 64-bit words, fixed 64 iterations.
 #[inline]
-fn clmul_u64(left: u64, right: u64) -> u128 {
+fn clmul_u64(left: u64, mut right: u64) -> u128 {
+    // Horner form: shift the accumulator by one and add the masked left word.
+    // Reversing `right` consumes bits MSB-first, so the final result has the
+    // original bit order. This avoids a variable 128-bit shift per bit.
+    right = right.reverse_bits();
     let mut result = 0u128;
     let mut index = 0u32;
     while index < 64 {
-        let bit = (right >> index) & 1;
-        let mask = 0u64.wrapping_sub(bit);
-        result ^= u128::from(left & mask) << index;
+        let mask = 0u64.wrapping_sub(right & 1);
+        result = (result << 1) ^ u128::from(left & mask);
+        right >>= 1;
         index = index.wrapping_add(1);
     }
     result
 }
 
-/// XOR `value` into a product limb; public index, no secret branch.
+/// Spread the 64 bits of `value` to the even positions of a 128-bit word.
 #[inline]
-fn xor_limb(limbs: &mut [u64; 10], index: usize, value: u64) {
-    if let Some(slot) = limbs.get_mut(index) {
-        *slot ^= value;
-    }
+fn spread64(value: u64) -> u128 {
+    let mut spread = u128::from(value);
+    spread = (spread | (spread << 32)) & 0x0000_0000_FFFF_FFFF_0000_0000_FFFF_FFFFu128;
+    spread = (spread | (spread << 16)) & 0x0000_FFFF_0000_FFFF_0000_FFFF_0000_FFFFu128;
+    spread = (spread | (spread << 8)) & 0x00FF_00FF_00FF_00FF_00FF_00FF_00FF_00FFu128;
+    spread = (spread | (spread << 4)) & 0x0F0F_0F0F_0F0F_0F0F_0F0F_0F0F_0F0F_0F0Fu128;
+    spread = (spread | (spread << 2)) & 0x3333_3333_3333_3333_3333_3333_3333_3333u128;
+    spread = (spread | (spread << 1)) & 0x5555_5555_5555_5555_5555_5555_5555_5555u128;
+    spread
 }
 
-/// Extract a bit from a 640-bit product; public index.
+/// XOR a 64-bit word into the 640-bit accumulator at a public bit offset.
 #[inline]
-fn product_bit(limbs: &[u64; 10], bit: u32) -> u64 {
+fn xor_u64_at(limbs: &mut [u64; 10], bit: u32, value: u64) {
     let limb_index = usize::try_from(bit >> 6).unwrap_or(10);
-    let offset = bit & 63;
-    match limbs.get(limb_index) {
-        Some(&limb) => (limb >> offset) & 1,
-        None => 0,
-    }
-}
-
-/// XOR an all-zero/all-one mask at a public bit position.
-#[inline]
-fn xor_bit_mask(limbs: &mut [u64; 10], bit: u32, mask: u64) {
-    let limb_index = usize::try_from(bit >> 6).unwrap_or(10);
-    let offset = bit & 63;
+    let shift = bit & 63;
+    let shifted = u128::from(value) << shift;
+    let low = u64::try_from(shifted & 0xFFFF_FFFF_FFFF_FFFF).unwrap_or(0);
+    let high = u64::try_from(shifted >> 64).unwrap_or(0);
     if let Some(slot) = limbs.get_mut(limb_index) {
-        *slot ^= mask.wrapping_shl(offset);
+        *slot ^= low;
     }
+    if let Some(slot) = limbs.get_mut(limb_index.wrapping_add(1)) {
+        *slot ^= high;
+    }
+}
+
+/// Reduce a 576-bit product with five fixed word reductions.
+///
+/// For a high word at bit base `w*64` (w >= 5), each bit at `base+j` reduces to
+/// `j-288`, `j-287`, `j-278`, `j-277`. Word 4 contributes only its high 32
+/// bits; its generated terms are handled last so feedback is included.
+#[inline]
+fn reduce_product(product: &mut [u64; 10]) -> [u64; 5] {
+    for word_index in (4usize..=8).rev() {
+        let word = product.get(word_index).copied().unwrap_or(0);
+        if word_index == 4 {
+            let high = word >> 32;
+            xor_u64_at(product, 0, high);
+            xor_u64_at(product, 1, high);
+            xor_u64_at(product, 10, high);
+            xor_u64_at(product, 11, high);
+        } else {
+            let base = u32::try_from(word_index.wrapping_mul(64).wrapping_sub(288)).unwrap_or(0);
+            xor_u64_at(product, base, word);
+            xor_u64_at(product, base.wrapping_add(1), word);
+            xor_u64_at(product, base.wrapping_add(10), word);
+            xor_u64_at(product, base.wrapping_add(11), word);
+        }
+    }
+    if let Some(top) = product.get_mut(4) {
+        *top &= 0xFFFF_FFFF;
+    }
+    let [r0, r1, r2, r3, r4, _, _, _, _, _] = *product;
+    [r0, r1, r2, r3, r4]
+}
+
+/// Square a field element and reduce.
+#[inline]
+fn square_reduce(value: [u64; 5]) -> [u64; 5] {
+    let mut product = [0u64; 10];
+    for (index, limb) in value.iter().enumerate() {
+        let spread = spread64(*limb);
+        let low = u64::try_from(spread & 0xFFFF_FFFF_FFFF_FFFF).unwrap_or(0);
+        let high = u64::try_from(spread >> 64).unwrap_or(0);
+        if let Some(slot) = product.get_mut(index.wrapping_mul(2)) {
+            *slot = low;
+        }
+        if let Some(slot) = product.get_mut(index.wrapping_mul(2).wrapping_add(1)) {
+            *slot = high;
+        }
+    }
+    reduce_product(&mut product)
 }
 
 /// Multiply two 5-limb elements and reduce modulo the field polynomial.
@@ -341,26 +388,24 @@ fn mul_reduce(left: [u64; LIMB_COUNT], right: [u64; LIMB_COUNT]) -> [u64; LIMB_C
             let low = u64::try_from(product_128 & 0xFFFF_FFFF_FFFF_FFFF).unwrap_or(0);
             let high = u64::try_from(product_128 >> 64).unwrap_or(0);
             let index = left_index.wrapping_add(right_index);
-            xor_limb(&mut product, index, low);
-            xor_limb(&mut product, index.wrapping_add(1), high);
+            if let Some(slot) = product.get_mut(index) {
+                *slot ^= low;
+            }
+            if let Some(slot) = product.get_mut(index.wrapping_add(1)) {
+                *slot ^= high;
+            }
         }
     }
+    reduce_product(&mut product)
+}
 
-    // Masked bitwise reduction, high bit to field degree.
-    let mut bit = HIGH_PRODUCT_BIT;
-    while bit >= FIELD_DEGREE {
-        let current = product_bit(&product, bit);
-        let mask = current;
-        let shift = bit.wrapping_sub(FIELD_DEGREE);
-        for &offset in &POLY_OFFSETS {
-            xor_bit_mask(&mut product, shift.wrapping_add(offset), mask);
-        }
-        bit = bit.wrapping_sub(1);
-    }
+#[cfg(test)]
+mod tests {
+    use super::{CHAIN, F288, chain_lookup};
 
-    if let Some(top) = product.get_mut(4) {
-        *top &= 0xFFFF_FFFF;
+    #[test]
+    fn defensive_lookups_return_zero() {
+        let table = [(0u16, F288::ONE); CHAIN.len() + 1];
+        assert!(chain_lookup(&table, 999).is_zero());
     }
-    let [r0, r1, r2, r3, r4, _, _, _, _, _] = product;
-    [r0, r1, r2, r3, r4]
 }

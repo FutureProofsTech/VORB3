@@ -44,3 +44,8 @@ exhaustive_structs = "deny"
 alloc_instead_of_core = "deny"
 std_instead_of_core = "deny"
 std_instead_of_alloc = "deny"
+
+[[test]]
+name = "bench_api"
+path = "tests/bench_api.rs"
+required-features = ["bench-api"]

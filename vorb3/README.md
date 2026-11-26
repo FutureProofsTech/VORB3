@@ -9,8 +9,10 @@ zero-dependency gate), Phase 2 (constant-time/GF(2^288)), Phase 3
 (QuickSilver/sign/verify) and the Phase 7 hardening/attack checkpoint are
 implemented. The 109,376-bit signature sweep, 1-hour fuzz, 32 KiB per-operation
 release stack target, canary scan, cachegrind/assembly evidence, and Kani helper
-proofs are recorded under `../docs/`. This is not a release certificate and no
-external audit is claimed.
+proofs are recorded under `../docs/`. The optimization checkpoint is in
+`../docs/OPTIMIZATIONS.md`: Rain-SP1 encryption is 0.287 ms and sign is 7.07 ms
+for the 32-byte KAT message in the local benchmark. This is not a release
+certificate and no external audit is claimed.
 
 - No `std`, no `alloc`.
 - `forbid(unsafe_code)`.

@@ -342,3 +342,32 @@ review, and the open Rain-SP1 cryptanalysis items.
 
 **Evidence:** `vorb3/tests/stack.rs`, `tools/attack/src/main.rs`,
 `docs/SIDE-CHANNEL.md`, `docs/PHASE7-ATTACK-REPORT.md`.
+
+---
+
+## D23 — Performance optimization checkpoint
+
+**Status:** Accepted for the local candidate profile.
+
+**Context:** Rain-SP1 encryption was 14.902 ms, dominated by 15 field
+inversions (987.7 µs each). Signing was 34.971 ms and verification 19.176 ms;
+GGM/BLAKE3 was the next bottleneck.
+
+**Choice:**
+- Specialized GF(2^288) squaring (bit spread + fixed-word reduction) and a
+  Horner carry-less multiplier.
+- Precomputed public WH512/GGM context keys.
+- One-chunk BLAKE3 fast path.
+- Per-tree streaming WH512/derive-key prefix states for GGM leaf, node, and
+  expansion records.
+- Three scoped `#[inline(always)]` exceptions in BLAKE3 hot paths; no unsafe,
+  no dependency, and no safety/panic/cast lint weakened.
+
+**Result:** Rain 0.287 ms (≈52×), sign 7.065 ms (≈4.95×), verify 6.333 ms
+(≈3.03×), field squaring 15.1 ns (≈215×), inversion 18.31 µs (≈54×). Signature
+KAT remains byte-identical; 32 KiB stack and all gates pass.
+
+**Consequences:** GGM/BLAKE3 is now the dominant cost. Further major gains need
+safe hardware CLMUL/SIMD or a protocol change; neither is taken here.
+
+**Evidence:** `docs/OPTIMIZATIONS.md`, `docs/BENCHMARKS.md`, KAT/gates.

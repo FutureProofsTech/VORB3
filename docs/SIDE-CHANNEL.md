@@ -1,6 +1,7 @@
 # Side-Channel Measurement Report
 
-**Status:** local checkpoint. Evidence, not a formal constant-time proof.
+**Status:** optimized-build checkpoint. Evidence, not a formal constant-time
+proof.
 **Profile:** SP-288/35.
 
 ## 1. Scope and method
@@ -20,9 +21,9 @@ t. The acceptance threshold is `|t| < 4.5`.
 
 ### 1.2 Why not 50M samples
 
-At the measured release rates (about 35 ms/signature and 19 ms/verification),
-50M samples per class would require roughly 20 days for signing and 11 days for
-verification on one core. That is not a meaningful local gate. The campaign
+At the optimized release rates (about 7.0 ms/signature and 6.3 ms/verification),
+50M samples per class would still require roughly 4 days for signing and 3.6
+days for verification on one core. That is not a meaningful local gate. The campaign
 uses 20,000 samples per test, which has useful power against moderate timing
 shifts; it does not prove the absence of sub-percent leaks. The earlier plan's
 "50M" target is superseded by this measured, reproducible sample size.
@@ -64,45 +65,45 @@ Signing (`dudect 20000`, fixed key vs second key):
 
 ```text
 n = 20,000
-mean A = 34,904,530 ns
-mean B = 34,908,566 ns
-Welch t = -0.494
+mean A = 7,012,362 ns
+mean B = 7,013,110 ns
+Welch t = -0.251
 ```
 
 Verification (`dudect-verify 20000`, valid vs corrupted signature):
 
 ```text
 n = 20,000
-mean A = 19,183,474 ns
-mean B = 19,186,377 ns
-Welch t = -0.996
+mean A = 6,287,703 ns
+mean B = 6,288,356 ns
+Welch t = -0.266
 ```
 
-Both are below `|t| < 4.5`. The run took 11m39s for signing and 6m24s for
-verification.
+Both are below `|t| < 4.5`. The optimized run took 2m20s for signing and 2m06s
+for verification. The same campaign was run on the final optimized binary.
 
 ### 2.2 Cachegrind
 
 | Metric | fixed key | other key |
 |---|---:|---:|
-| I refs | 7,740,065,543 | 7,740,071,064 |
-| D refs | 2,114,285,317 | 2,114,290,587 |
-| D1 misses | 3,876 | 9,179 |
-| LLd misses | 3,005 | 3,005 |
-| Branches | 138,267,114 | 138,267,128 |
-| Mispredicts | 5,090,543 | 5,090,526 |
+| I refs | 2,022,190,854 | 2,022,196,375 |
+| D refs | 474,126,330 | 474,131,600 |
+| D1 misses | 6,681 | 3,573 |
+| LLd misses | 2,946 | 2,945 |
+| Branches | 21,773,272 | 21,773,286 |
+| Mispredicts | 721,641 | 721,840 |
 
-LLd misses are identical and instruction/branch counts differ by a handful out
-of billions. The D1 variation is layout-sensitive and is not rounded to zero.
+Instruction/branch counts differ by a handful out of billions. LLd misses differ
+by one (layout/noise); the D1 variation is not rounded to zero.
 
 ### 2.3 Assembly
 
 ```text
-hidden_opening:   339 lines, 3 conditional branches, 0 cmov, 5 calls
-tree_root:        398 lines, 9 conditional branches, 2 cmov, 6 calls
-verify_bytes:     701 lines, 3 conditional branches, 41 calls
-sign_into:      2,670 lines, 61 conditional branches, 77 calls
-mul_reduce:       331 lines, 7 conditional branches, 25 cmov
+hidden_opening:   476 lines, 3 conditional branches, 0 cmov, 12 calls
+tree_root:        519 lines, 9 conditional branches, 2 cmov, 14 calls
+verify_bytes:     652 lines, 3 conditional branches, 38 calls
+sign_into:      2,556 lines, 60 conditional branches, 71 calls
+mul_reduce:       387 lines, 6 conditional branches, 0 cmov
 ```
 
 Manual review indicates the branches are public loop bounds, slice bounds,

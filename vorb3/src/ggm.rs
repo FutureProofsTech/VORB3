@@ -5,7 +5,7 @@
 //! commitment, and copath. No full tree is retained on the stack. All
 //! secret-index selections are full-width masked scans.
 
-use crate::blake3::{derive_key, wh512};
+use crate::blake3::{DeriveKeyPrefix, Wh512Prefix, derive_key_prefix, wh512_prefix};
 use crate::ct::CtChoice;
 use crate::field::F288;
 use crate::zeroize::wipe_bytes;
@@ -15,6 +15,80 @@ const COPATH_LEN: usize = TREE_DEPTH;
 const LEAF_LABEL: &[u8] = b"VORB3-GGM-LEAF-V1";
 const NODE_LABEL: &[u8] = b"VORB3-GGM-NODE-V1";
 const EXPAND_LABEL: &[u8] = b"VORB3-GGM-EXPAND-V1";
+const EXPAND_KEY: [u32; 8] = [
+    0x0423_f085,
+    0x1582_3cc1,
+    0x0335_33df,
+    0x0248_f9ed,
+    0x86d9_89eb,
+    0xed2c_bf0f,
+    0xda19_e3f0,
+    0xde78_b884,
+];
+pub const TREE_ROOT_KEY: [u32; 8] = [
+    0xa292_f227,
+    0x53f4_035a,
+    0x8d41_4be5,
+    0xfbab_8096,
+    0xb14c_b094,
+    0x20bf_1a38,
+    0x3322_13bf,
+    0xbd28_92ba,
+];
+const EXPAND_PREFIX_LEN: usize = EXPAND_LABEL.len() + SALT_LEN + COMMITMENT_LEN + 2;
+const EXPAND_SUFFIX_LEN: usize = 1 + 2 + FIELD_BYTES;
+const LEAF_PREFIX_LEN: usize = LEAF_LABEL.len() + SALT_LEN + COMMITMENT_LEN + 2;
+const NODE_PREFIX_LEN: usize = NODE_LABEL.len() + SALT_LEN + COMMITMENT_LEN + 2;
+const LEAF_SUFFIX_LEN: usize = 2 + FIELD_BYTES;
+const NODE_SUFFIX_LEN: usize = 1 + 2 + COMMITMENT_LEN + COMMITMENT_LEN;
+
+/// Per-tree WH512 states after the constant leaf/node prefixes.
+struct GgmPrefixes {
+    expand: DeriveKeyPrefix,
+    leaf: Wh512Prefix,
+    node: Wh512Prefix,
+}
+
+impl GgmPrefixes {
+    #[inline]
+    fn new(tree_index: u16, salt: &[u8; SALT_LEN], pk_hash: &[u8; COMMITMENT_LEN]) -> Self {
+        let mut expand = [0u8; EXPAND_PREFIX_LEN];
+        let (slot, rest) = expand.split_at_mut(EXPAND_LABEL.len());
+        slot.copy_from_slice(EXPAND_LABEL);
+        let (slot, rest) = rest.split_at_mut(SALT_LEN);
+        slot.copy_from_slice(salt);
+        let (slot, rest) = rest.split_at_mut(COMMITMENT_LEN);
+        slot.copy_from_slice(pk_hash);
+        let (slot, _rest) = rest.split_at_mut(2);
+        slot.copy_from_slice(&tree_index.to_le_bytes());
+
+        let mut leaf = [0u8; LEAF_PREFIX_LEN];
+        let (slot, rest) = leaf.split_at_mut(LEAF_LABEL.len());
+        slot.copy_from_slice(LEAF_LABEL);
+        let (slot, rest) = rest.split_at_mut(SALT_LEN);
+        slot.copy_from_slice(salt);
+        let (slot, rest) = rest.split_at_mut(COMMITMENT_LEN);
+        slot.copy_from_slice(pk_hash);
+        let (slot, _rest) = rest.split_at_mut(2);
+        slot.copy_from_slice(&tree_index.to_le_bytes());
+
+        let mut node = [0u8; NODE_PREFIX_LEN];
+        let (slot, rest) = node.split_at_mut(NODE_LABEL.len());
+        slot.copy_from_slice(NODE_LABEL);
+        let (slot, rest) = rest.split_at_mut(SALT_LEN);
+        slot.copy_from_slice(salt);
+        let (slot, rest) = rest.split_at_mut(COMMITMENT_LEN);
+        slot.copy_from_slice(pk_hash);
+        let (slot, _rest) = rest.split_at_mut(2);
+        slot.copy_from_slice(&tree_index.to_le_bytes());
+
+        Self {
+            expand: derive_key_prefix(EXPAND_KEY, &expand),
+            leaf: wh512_prefix(&leaf),
+            node: wh512_prefix(&node),
+        }
+    }
+}
 
 /// Computes a tree root in one streaming left-to-right pass.
 #[must_use]
@@ -25,10 +99,9 @@ pub fn tree_root(
     salt: &[u8; SALT_LEN],
     pk_hash: &[u8; COMMITMENT_LEN],
 ) -> [u8; COMMITMENT_LEN] {
+    let prefixes = GgmPrefixes::new(tree_index, salt, pk_hash);
     let mut builder = RootBuilder {
-        tree_index,
-        salt,
-        pk_hash,
+        prefixes,
         stack: [[0u8; COMMITMENT_LEN]; TREE_DEPTH + 1],
     };
     let mut dfs = [Node::ZERO; TREE_DEPTH + 1];
@@ -50,26 +123,13 @@ pub fn tree_root(
         }
         if usize::from(node.level) == TREE_DEPTH {
             let share = leaf_share(node.seed);
-            let commitment = leaf_commitment(
-                builder.tree_index,
-                node.index,
-                share,
-                builder.salt,
-                builder.pk_hash,
-            );
+            let commitment = leaf_commitment(&builder.prefixes, node.index, share);
             builder.add_leaf(commitment, node.index);
             wipe_bytes(&mut node.seed);
             continue;
         }
         let level = node.level;
-        let (left, right) = expand_child(
-            node.seed,
-            builder.tree_index,
-            level,
-            node.index,
-            builder.salt,
-            builder.pk_hash,
-        );
+        let (left, right) = expand_child(&builder.prefixes, node.seed, level, node.index);
         wipe_bytes(&mut node.seed);
         if let Some(slot) = dfs.get_mut(top) {
             *slot = Node {
@@ -111,14 +171,12 @@ impl Node {
     };
 }
 
-struct RootBuilder<'a> {
-    tree_index: u16,
-    salt: &'a [u8; SALT_LEN],
-    pk_hash: &'a [u8; COMMITMENT_LEN],
+struct RootBuilder {
+    prefixes: GgmPrefixes,
     stack: [[u8; COMMITMENT_LEN]; TREE_DEPTH + 1],
 }
 
-impl RootBuilder<'_> {
+impl RootBuilder {
     fn add_leaf(&mut self, commitment: [u8; COMMITMENT_LEN], leaf_index: u16) {
         let mut hash = commitment;
         let mut index = leaf_index;
@@ -132,15 +190,7 @@ impl RootBuilder<'_> {
             let parent_index = index >> 1;
             let node_level =
                 u8::try_from(TREE_DEPTH.wrapping_sub(1).wrapping_sub(merge_level)).unwrap_or(0);
-            hash = node_hash(
-                self.tree_index,
-                node_level,
-                parent_index,
-                left,
-                hash,
-                self.salt,
-                self.pk_hash,
-            );
+            hash = node_hash(&self.prefixes, node_level, parent_index, left, hash);
             index >>= 1;
             merge_level = merge_level.wrapping_add(1);
         }
@@ -163,17 +213,16 @@ pub fn hidden_opening(
 ) -> (F288, [u8; COMMITMENT_LEN], [[u8; FIELD_BYTES]; COPATH_LEN]) {
     let mut parent = root_seed;
     wipe_bytes(&mut root_seed);
+    let prefixes = GgmPrefixes::new(tree_index, salt, pk_hash);
     let mut copath = [[0u8; FIELD_BYTES]; COPATH_LEN];
     for level in 0..TREE_DEPTH {
         let parent_index =
             u16::try_from(usize::from(alpha) >> (TREE_DEPTH.wrapping_sub(level))).unwrap_or(0);
         let (left, right) = expand_child(
+            &prefixes,
             parent,
-            tree_index,
             u8::try_from(level).unwrap_or(0),
             parent_index,
-            salt,
-            pk_hash,
         );
         let shift = TREE_DEPTH.wrapping_sub(1).wrapping_sub(level);
         let bit = u8::try_from((usize::from(alpha) >> shift) & 1).unwrap_or(0);
@@ -191,7 +240,7 @@ pub fn hidden_opening(
     }
     let share = leaf_share(parent);
     wipe_bytes(&mut parent);
-    let commitment = leaf_commitment(tree_index, u16::from(alpha), share, salt, pk_hash);
+    let commitment = leaf_commitment(&prefixes, u16::from(alpha), share);
     (share, commitment, copath)
 }
 
@@ -206,6 +255,7 @@ pub fn reconstruct_root(
     salt: &[u8; SALT_LEN],
     pk_hash: &[u8; COMMITMENT_LEN],
 ) -> [u8; COMMITMENT_LEN] {
+    let prefixes = GgmPrefixes::new(tree_index, salt, pk_hash);
     let mut hash = hidden_commitment;
     for level in (1..=TREE_DEPTH).rev() {
         let sibling_index = (usize::from(alpha) >> (TREE_DEPTH.wrapping_sub(level))) ^ 1;
@@ -213,14 +263,7 @@ pub fn reconstruct_root(
             .get(TREE_DEPTH.wrapping_sub(level))
             .copied()
             .unwrap_or([0u8; FIELD_BYTES]);
-        let sibling_hash = subtree_hash(
-            sibling_seed,
-            tree_index,
-            level,
-            sibling_index,
-            salt,
-            pk_hash,
-        );
+        let sibling_hash = subtree_hash(sibling_seed, level, sibling_index, &prefixes);
         let (left, right) = if sibling_index & 1 == 1 {
             (hash, sibling_hash)
         } else {
@@ -228,13 +271,11 @@ pub fn reconstruct_root(
         };
         let parent_index = usize::from(alpha) >> (TREE_DEPTH.wrapping_sub(level).wrapping_add(1));
         hash = node_hash(
-            tree_index,
+            &prefixes,
             u8::try_from(level.wrapping_sub(1)).unwrap_or(0),
             u16::try_from(parent_index).unwrap_or(0),
             left,
             right,
-            salt,
-            pk_hash,
         );
     }
     hash
@@ -242,53 +283,41 @@ pub fn reconstruct_root(
 
 fn subtree_hash(
     seed: [u8; FIELD_BYTES],
-    tree_index: u16,
     level: usize,
     index: usize,
-    salt: &[u8; SALT_LEN],
-    pk_hash: &[u8; COMMITMENT_LEN],
+    prefixes: &GgmPrefixes,
 ) -> [u8; COMMITMENT_LEN] {
     if level == TREE_DEPTH {
         return leaf_commitment(
-            tree_index,
+            prefixes,
             u16::try_from(index).unwrap_or(0),
             leaf_share(seed),
-            salt,
-            pk_hash,
         );
     }
     let (left_seed, right_seed) = expand_child(
+        prefixes,
         seed,
-        tree_index,
         u8::try_from(level).unwrap_or(0),
         u16::try_from(index).unwrap_or(0),
-        salt,
-        pk_hash,
     );
     let left = subtree_hash(
         left_seed,
-        tree_index,
         level.wrapping_add(1),
         index.wrapping_mul(2),
-        salt,
-        pk_hash,
+        prefixes,
     );
     let right = subtree_hash(
         right_seed,
-        tree_index,
         level.wrapping_add(1),
         index.wrapping_mul(2).wrapping_add(1),
-        salt,
-        pk_hash,
+        prefixes,
     );
     node_hash(
-        tree_index,
+        prefixes,
         u8::try_from(level).unwrap_or(0),
         u16::try_from(index).unwrap_or(0),
         left,
         right,
-        salt,
-        pk_hash,
     )
 }
 
@@ -313,105 +342,60 @@ fn leaf_share(seed: [u8; FIELD_BYTES]) -> F288 {
 }
 
 fn expand_child(
+    prefixes: &GgmPrefixes,
     mut parent: [u8; FIELD_BYTES],
-    tree_index: u16,
     level: u8,
     index: u16,
-    salt: &[u8; SALT_LEN],
-    pk_hash: &[u8; COMMITMENT_LEN],
 ) -> ([u8; FIELD_BYTES], [u8; FIELD_BYTES]) {
-    let mut data = [0u8; 192];
-    let mut offset = 0usize;
-    let mut result = ([0u8; FIELD_BYTES], [0u8; FIELD_BYTES]);
-    let built = append(&mut data, &mut offset, EXPAND_LABEL)
-        && append(&mut data, &mut offset, salt)
-        && append(&mut data, &mut offset, pk_hash)
-        && append(&mut data, &mut offset, &tree_index.to_le_bytes())
-        && append(&mut data, &mut offset, &[level])
-        && append(&mut data, &mut offset, &index.to_le_bytes())
-        && append(&mut data, &mut offset, &parent);
-    if built {
-        let mut output = [0u8; 2 * FIELD_BYTES];
-        derive_key(
-            "VORB3-GGM-EXPAND-V1",
-            data.get(..offset).unwrap_or(&[]),
-            &mut output,
-        );
-        let (chunks, remainder) = output.as_chunks::<FIELD_BYTES>();
-        if remainder.is_empty()
-            && let [left, right] = chunks
-        {
-            result = (*left, *right);
-        }
-        wipe_bytes(&mut output);
-    }
-    wipe_bytes(&mut data);
+    let mut suffix = [0u8; EXPAND_SUFFIX_LEN];
+    let (slot, rest) = suffix.split_at_mut(1);
+    slot.copy_from_slice(&[level]);
+    let (slot, rest) = rest.split_at_mut(2);
+    slot.copy_from_slice(&index.to_le_bytes());
+    let (slot, _rest) = rest.split_at_mut(FIELD_BYTES);
+    slot.copy_from_slice(&parent);
+
+    let mut output = [0u8; 2 * FIELD_BYTES];
+    prefixes.expand.finish(&suffix, &mut output);
+    let (left_bytes, right_bytes) = output.split_at(FIELD_BYTES);
+    let mut left = [0u8; FIELD_BYTES];
+    let mut right = [0u8; FIELD_BYTES];
+    left.copy_from_slice(left_bytes);
+    right.copy_from_slice(right_bytes);
+    wipe_bytes(&mut output);
+    wipe_bytes(&mut suffix);
     wipe_bytes(&mut parent);
-    result
+    (left, right)
 }
 
 #[inline(never)]
-fn leaf_commitment(
-    tree_index: u16,
-    leaf_index: u16,
-    share: F288,
-    salt: &[u8; SALT_LEN],
-    pk_hash: &[u8; COMMITMENT_LEN],
-) -> [u8; COMMITMENT_LEN] {
-    let mut data = [0u8; 192];
-    let mut offset = 0usize;
-    let built = append(&mut data, &mut offset, LEAF_LABEL)
-        && append(&mut data, &mut offset, salt)
-        && append(&mut data, &mut offset, pk_hash)
-        && append(&mut data, &mut offset, &tree_index.to_le_bytes())
-        && append(&mut data, &mut offset, &leaf_index.to_le_bytes())
-        && append(&mut data, &mut offset, &share.to_bytes());
-    let result = if built {
-        wh512(data.get(..offset).unwrap_or(&[]))
-    } else {
-        [0u8; COMMITMENT_LEN]
-    };
-    wipe_bytes(&mut data);
-    result
+fn leaf_commitment(prefixes: &GgmPrefixes, leaf_index: u16, share: F288) -> [u8; COMMITMENT_LEN] {
+    let mut suffix = [0u8; LEAF_SUFFIX_LEN];
+    let (slot, rest) = suffix.split_at_mut(2);
+    slot.copy_from_slice(&leaf_index.to_le_bytes());
+    let (slot, _rest) = rest.split_at_mut(FIELD_BYTES);
+    slot.copy_from_slice(&share.to_bytes());
+    prefixes.leaf.finish(&suffix)
 }
 
 #[inline(never)]
 fn node_hash(
-    tree_index: u16,
+    prefixes: &GgmPrefixes,
     level: u8,
     index: u16,
     left: [u8; COMMITMENT_LEN],
     right: [u8; COMMITMENT_LEN],
-    salt: &[u8; SALT_LEN],
-    pk_hash: &[u8; COMMITMENT_LEN],
 ) -> [u8; COMMITMENT_LEN] {
-    let mut data = [0u8; 288];
-    let mut offset = 0usize;
-    if !append(&mut data, &mut offset, NODE_LABEL)
-        || !append(&mut data, &mut offset, salt)
-        || !append(&mut data, &mut offset, pk_hash)
-        || !append(&mut data, &mut offset, &tree_index.to_le_bytes())
-        || !append(&mut data, &mut offset, &[level])
-        || !append(&mut data, &mut offset, &index.to_le_bytes())
-        || !append(&mut data, &mut offset, &left)
-        || !append(&mut data, &mut offset, &right)
-    {
-        return [0u8; COMMITMENT_LEN];
-    }
-    wh512(data.get(..offset).unwrap_or(&[]))
-}
-
-#[inline]
-fn append(buffer: &mut [u8], offset: &mut usize, data: &[u8]) -> bool {
-    let Some(end) = offset.checked_add(data.len()) else {
-        return false;
-    };
-    let Some(dst) = buffer.get_mut(*offset..end) else {
-        return false;
-    };
-    dst.copy_from_slice(data);
-    *offset = end;
-    true
+    let mut suffix = [0u8; NODE_SUFFIX_LEN];
+    let (slot, rest) = suffix.split_at_mut(1);
+    slot.copy_from_slice(&[level]);
+    let (slot, rest) = rest.split_at_mut(2);
+    slot.copy_from_slice(&index.to_le_bytes());
+    let (slot, rest) = rest.split_at_mut(COMMITMENT_LEN);
+    slot.copy_from_slice(&left);
+    let (slot, _rest) = rest.split_at_mut(COMMITMENT_LEN);
+    slot.copy_from_slice(&right);
+    prefixes.node.finish(&suffix)
 }
 
 #[cfg(kani)]
