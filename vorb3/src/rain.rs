@@ -65,8 +65,8 @@ const DIFFUSION_CONTEXTS: [&str; ROUNDS] = [
 
 /// Public Rain-SP1 round constants and diffusion constants.
 pub struct RainConstants {
-    diffusion: [F288; ROUNDS],
-    round: [F288; ROUNDS],
+    pub(crate) diffusion: [F288; ROUNDS],
+    pub(crate) round: [F288; ROUNDS],
 }
 
 impl RainConstants {
@@ -97,7 +97,6 @@ impl RainConstants {
 ///
 /// Fields are crate-visible because the proof module consumes them; they are not
 /// exposed to API users.
-#[allow(dead_code)] // consumed by the proof module in Phase 6.
 pub struct RainWitness {
     pub(crate) x: [F288; ROUNDS],
     pub(crate) y: [F288; ROUNDS],

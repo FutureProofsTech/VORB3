@@ -1,11 +1,12 @@
-# VORB3 — Phase 1–5 Checkpoint
+# VORB3 — Phase 1–6 Checkpoint
 
 **Date:** 2026-11-26
 **Profile:** **SP-288/35 frozen** — GF(2^288), 35 trees, depth 8, 15 rounds,
 13,672-byte signature.
-**Status:** Phase 1 gate passed; Phase 2 field/CT assurance, Phase 3 BLAKE3/WH512,
-Phase 4 Rain-SP1, and Phase 5 GGM/Merkle/transcript are implemented at
-checkpoint. No QuickSilver/sign/verify yet.
+**Status:** Phase 1–6 are implemented at checkpoint: field/CT, BLAKE3/WH512,
+Rain-SP1, GGM/Merkle/transcript, key types, QuickSilver proof, sign/verify.
+The end-to-end SP-288/35 signature KAT matches the independent Python model
+exactly. Hardening and attack campaigns remain.
 
 ---
 
@@ -121,6 +122,19 @@ inverse self-consistency: 2,000 values       PASS
   eight copath seeds, root reconstruction) and transcript DELTA/CHI/H2.
 - GGM peak array is split below the 16 KiB per-array lint threshold; the full
   one-tree build is within the 64 KiB stack cap.
+
+## 3.4 Phase 6 — Goals/Proof/sign/verify
+
+- `vorb3/src/keys.rs`: compact seed, expanded key, public key, validation,
+  zeroizing drops.
+- `vorb3/src/signature.rs`: fixed 13,672-byte type.
+- `vorb3/src/sign.rs`: 35-tree root pass, transcript, 31 wire openings,
+  Rain-SP1 witness, 60 QuickSilver gates, mask `U/V`, output tag, sign/verify.
+- End-to-end KAT: Rust `sign` output equals the Python model byte-for-byte;
+  `verify` accepts it and rejects a different message.
+- KAT files: `kat/seed_sp288_35.bin`, `kat/pk_sp288_35.bin`,
+  `kat/sign_sp288_35.bin` (SHA-256
+  `c073c7e3f7b31192ba1932f9ed990b32bc4f321453347a23837803ef4fa9b68b`).
 
 ## 4. What is not done yet
 

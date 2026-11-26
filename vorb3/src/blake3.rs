@@ -454,6 +454,32 @@ pub fn derive_key(context: &str, data: &[u8], out: &mut [u8]) {
     hash_internal(data, key_words(key), DERIVE_KEY_MATERIAL).root_bytes(out);
 }
 
+/// Streaming BLAKE3 derive-key state. Used for hedged key derivation over an
+/// arbitrary-length message without allocation.
+pub(crate) struct DeriveKeyHasher {
+    hasher: Hasher,
+}
+
+impl DeriveKeyHasher {
+    #[inline]
+    pub(crate) fn new(context: &str) -> Self {
+        let key = context_key(context);
+        Self {
+            hasher: Hasher::new(key_words(key), DERIVE_KEY_MATERIAL),
+        }
+    }
+
+    #[inline]
+    pub(crate) fn update(&mut self, data: &[u8]) {
+        self.hasher.update(data);
+    }
+
+    #[inline]
+    pub(crate) fn finalize(self, out: &mut [u8]) {
+        self.hasher.finalize().root_bytes(out);
+    }
+}
+
 /// Streaming WH512: two independent BLAKE3 derive-key states for the A/B
 /// contexts. Used by the transcript for arbitrary-length absorptions without
 /// allocation.

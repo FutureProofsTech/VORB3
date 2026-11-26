@@ -5,14 +5,12 @@
 //! internal nodes are 64-byte WH512 values. The copath stores the eight sibling
 //! seeds, allowing the verifier to reconstruct the Merkle root without the
 //! hidden leaf.
-#![allow(dead_code)] // consumed by sign/verify in Phase 6.
 
 use crate::blake3::{derive_key, wh512};
 use crate::field::F288;
 use crate::{COMMITMENT_LEN, FIELD_BYTES, SALT_LEN, TREE_DEPTH};
 
 const LEAF_COUNT: usize = 1 << TREE_DEPTH;
-const NODE_COUNT: usize = (1 << (TREE_DEPTH + 1)) - 1;
 const LOWER_NODES: usize = 256;
 const UPPER_NODES: usize = 255;
 const LEAF_BASE: usize = (1 << TREE_DEPTH) - 1;
@@ -83,7 +81,6 @@ impl GgmTree {
 
         let mut count = LEAF_COUNT;
         let mut level = TREE_DEPTH;
-        let mut next_hashes = [[0u8; COMMITMENT_LEN]; LEAF_COUNT];
         while level > 0 {
             count >>= 1;
             for index in 0..count {
@@ -104,11 +101,10 @@ impl GgmTree {
                     salt,
                     pk_hash,
                 );
-                if let Some(slot) = next_hashes.get_mut(index) {
+                if let Some(slot) = hashes.get_mut(index) {
                     *slot = node;
                 }
             }
-            hashes = next_hashes;
             level = level.wrapping_sub(1);
         }
 

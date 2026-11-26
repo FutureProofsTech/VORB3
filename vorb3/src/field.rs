@@ -124,7 +124,6 @@ impl F288 {
     /// otherwise `if_false`.
     #[must_use]
     #[inline]
-    #[allow(dead_code)] // used by the GGM leaf-zero mapping; GGM is wired into sign in Phase 6.
     pub(crate) fn ct_select(choice: CtChoice, if_false: Self, if_true: Self) -> Self {
         let [a0, a1, a2, a3, a4] = if_false.limbs;
         let [b0, b1, b2, b3, b4] = if_true.limbs;

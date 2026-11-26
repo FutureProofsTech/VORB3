@@ -8,8 +8,9 @@
 //!
 //! Phase 1 is the repository/toolchain/lint skeleton; Phase 2 implements the
 //! constant-time/GF(2^288) foundation; Phase 3 implements BLAKE3/WH512; Phase 4
-//! implements Rain-SP1; Phase 5 implements GGM/Merkle/transcript. `QuickSilver`,
-//! sign/verify follow in Phase 6. Profile constants are the source of truth.
+//! implements Rain-SP1; Phase 5 implements GGM/Merkle/transcript; Phase 6
+//! implements `QuickSilver`, sign/verify, and the fixed signature type. Profile
+//! constants are the source of truth.
 //!
 //! # Doctrine
 //!
@@ -65,7 +66,10 @@ pub mod field;
 mod ggm;
 #[cfg(kani)]
 mod kani_proofs;
+pub mod keys;
 pub mod rain;
+pub mod sign;
+pub mod signature;
 mod transcript;
 mod zeroize;
 

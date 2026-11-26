@@ -9,7 +9,6 @@
 //! The state is 512 bits. Each squeeze ratchets the state and zeros the old
 //! value. This module is crate-internal; its behavior is specified in
 //! `docs/VORB3-SPEC-1.md`.
-#![allow(dead_code)] // used by sign/verify in Phase 6.
 
 use crate::blake3::{Wh512Hasher, wh512};
 
