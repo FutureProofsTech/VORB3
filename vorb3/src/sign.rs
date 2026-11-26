@@ -605,3 +605,113 @@ fn write_field(bytes: &mut [u8; 72], offset: usize, value: F288) {
         slot.copy_from_slice(&value.to_bytes());
     }
 }
+
+#[cfg(feature = "bench-api")]
+pub(crate) mod bench {
+    use super::{
+        COMMITMENT_LEN, ExpandedSecretKey, F288, FIELD_BYTES, H2_LEN, Openings, PublicKey,
+        RainConstants, RainWitness, SALT_LEN, SECRET_WIRES, SIGNATURE_LEN, TREE_COUNT, Wires,
+        check_proof, derive_roots, fill_openings, fill_wires, master_seed, opened_wires, prove,
+        public_key_hash, reconstruct_roots, salt_from_master,
+    };
+
+    pub fn master_seed_bench(
+        secret: &ExpandedSecretKey,
+        public_key: &PublicKey,
+        message: &[u8],
+        entropy: &[u8; 32],
+    ) -> [u8; FIELD_BYTES] {
+        master_seed(secret, public_key, message, entropy)
+    }
+
+    pub fn salt_bench(master: &[u8; FIELD_BYTES]) -> [u8; SALT_LEN] {
+        salt_from_master(master)
+    }
+
+    pub fn pk_hash_bench(public_key: &PublicKey) -> [u8; COMMITMENT_LEN] {
+        public_key_hash(public_key)
+    }
+
+    pub fn roots_bench(
+        master: &[u8; FIELD_BYTES],
+        salt: &[u8; SALT_LEN],
+        pk_hash: &[u8; COMMITMENT_LEN],
+    ) -> [u8; TREE_COUNT * COMMITMENT_LEN] {
+        let mut roots = [0u8; TREE_COUNT * COMMITMENT_LEN];
+        derive_roots(master, salt, pk_hash, &mut roots);
+        roots
+    }
+
+    pub fn openings_bench(
+        master: &[u8; FIELD_BYTES],
+        salt: &[u8; SALT_LEN],
+        pk_hash: &[u8; COMMITMENT_LEN],
+        h2: &[u8; H2_LEN],
+        signature: &mut [u8; SIGNATURE_LEN],
+    ) -> ([F288; TREE_COUNT], [F288; TREE_COUNT]) {
+        let mut openings = Openings {
+            u: [F288::ZERO; TREE_COUNT],
+            q: [F288::ZERO; TREE_COUNT],
+        };
+        fill_openings(master, salt, pk_hash, h2, signature, &mut openings);
+        (openings.u, openings.q)
+    }
+
+    pub fn wires_bench(
+        sk: F288,
+        witness: &RainWitness,
+        u_values: &[F288; TREE_COUNT],
+        q_values: &[F288; TREE_COUNT],
+        delta: F288,
+        signature: &mut [u8; SIGNATURE_LEN],
+    ) -> ([F288; SECRET_WIRES], [F288; SECRET_WIRES]) {
+        let openings = Openings {
+            u: *u_values,
+            q: *q_values,
+        };
+        let mut wires = Wires {
+            values: [F288::ZERO; SECRET_WIRES],
+            tags: [F288::ZERO; SECRET_WIRES],
+        };
+        fill_wires(sk, witness, &openings, delta, signature, &mut wires);
+        (wires.values, wires.tags)
+    }
+
+    pub fn prove_bench(
+        witness: &RainWitness,
+        wire_w: &[F288; SECRET_WIRES],
+        tags: &[F288; SECRET_WIRES],
+        chi: F288,
+        constants: &RainConstants,
+    ) -> (F288, F288, F288) {
+        prove(witness, wire_w, tags, chi, constants)
+    }
+
+    pub fn opened_wires_bench(bytes: &[u8; SIGNATURE_LEN], delta: F288) -> [F288; SECRET_WIRES] {
+        let mut q_open = [F288::ZERO; SECRET_WIRES];
+        opened_wires(bytes, delta, &mut q_open);
+        q_open
+    }
+
+    pub fn check_proof_bench(
+        public_key: &PublicKey,
+        bytes: &[u8; SIGNATURE_LEN],
+        delta: F288,
+        chi: F288,
+        q_open: &[F288; SECRET_WIRES],
+        constants: &RainConstants,
+    ) -> bool {
+        check_proof(public_key, bytes, delta, chi, q_open, constants)
+    }
+
+    pub fn reconstruct_roots_bench(
+        bytes: &[u8; SIGNATURE_LEN],
+        salt: &[u8; SALT_LEN],
+        pk_hash: &[u8; COMMITMENT_LEN],
+        h2: &[u8; H2_LEN],
+    ) -> [u8; TREE_COUNT * COMMITMENT_LEN] {
+        let mut roots = [0u8; TREE_COUNT * COMMITMENT_LEN];
+        reconstruct_roots(bytes, salt, pk_hash, h2, &mut roots);
+        roots
+    }
+}

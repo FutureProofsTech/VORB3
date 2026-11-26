@@ -12,3 +12,10 @@ version = "0.1.0"
 dependencies = [
  "vorb3",
 ]
+
+[[package]]
+name = "vorb3-bench"
+version = "0.1.0"
+dependencies = [
+ "vorb3",
+]

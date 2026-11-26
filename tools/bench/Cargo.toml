@@ -1,0 +1,12 @@
+[package]
+name = "vorb3-bench"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "vorb3-bench"
+path = "src/main.rs"
+
+[dependencies]
+vorb3 = { path = "../../vorb3", features = ["bench-api"] }

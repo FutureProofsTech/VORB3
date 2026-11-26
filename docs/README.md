@@ -19,6 +19,7 @@ a release certificate and no external audit is claimed.
 | `PHASE7-ATTACK-REPORT.md` | Bit-flip, fuzz, stack, Kani, cachegrind, assembly |
 | `SIDE-CHANNEL.md` | Timing/cache/assembly measurement report |
 | `RAIN-CRYPTANALYSIS.md` | Rain-SP1 local cryptanalysis dossier |
+| `BENCHMARKS.md` | Full latency/throughput/memory/build benchmark report |
 | `../model/vorb3_model.py` | Independent Python/py-blake3 model |
 | `../model/README.md` | Model usage and limitations |
 

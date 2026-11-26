@@ -64,6 +64,8 @@
 #![deny(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]
 
+#[cfg(feature = "bench-api")]
+pub mod bench_api;
 pub mod blake3;
 mod ct;
 pub mod field;

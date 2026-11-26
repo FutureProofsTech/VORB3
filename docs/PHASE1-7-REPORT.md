@@ -169,6 +169,8 @@ per-operation, and `sign_into`/`verify_bytes` do not require a combined frame.
 
 - dudect-style signing and verification campaigns with randomized class order.
 - cachegrind instruction/cache/branch comparison for two keys.
+- full latency/throughput/memory/build measurements in `docs/BENCHMARKS.md`
+  (`scripts/bench.sh`).
 - release assembly audit with `scripts/asm_audit.py`.
 
 Measured numbers and limitations are in `docs/PHASE7-ATTACK-REPORT.md` and
