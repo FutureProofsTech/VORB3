@@ -1,0 +1,9 @@
+/target/
+**/target/
+model/__pycache__/
+*.pyc
+*.profraw
+*.profdata
+*.rs.bk
+evidence/
+.DS_Store
