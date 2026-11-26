@@ -8,6 +8,8 @@ model/__pycache__/
 evidence/
 .DS_Store
 fuzz/artifacts/
-fuzz/corpus/verify/*
-!fuzz/corpus/verify/seed
+fuzz/corpus/*/*
+!fuzz/corpus/*/seed
 fuzz/fuzz-*.log
+mutants.out/
+mutants.out.old/
