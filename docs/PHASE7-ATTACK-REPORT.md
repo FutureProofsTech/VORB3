@@ -1,7 +1,7 @@
 # VORB3 — Phase 7 Adversarial Campaign Report
 
-**Status:** in progress. The 1-hour fuzz run is executing; the 72-hour soak is
-scheduled for a later stage as directed.
+**Status:** 1-hour fuzz checkpoint complete; the 72-hour soak is scheduled for a
+later stage as directed.
 **Profile:** SP-288/35, 13,672-byte signature.
 **No external audit is claimed.**
 
@@ -87,11 +87,47 @@ Target:
 - treats any accepted non-KAT signature as a crash;
 - isolated tooling (`libfuzzer-sys`), not a shipped dependency.
 
-Started: 2026-11-26. Results will be appended when the run completes.
+Result: **PASS** — 16 jobs, **207,402 executions**, 3602 s wall per job, zero
+crash artifacts, `FUZZ_EXIT=0`. The target found no accepted non-KAT signature.
+The 72-hour soak remains deferred.
 
 **72-hour soak:** deferred to a later stage as directed.
 
 ---
+
+## 2.1 Timing smoke
+
+`tools/attack dudect 2000` on an otherwise idle machine:
+
+```
+n=2000, Welch t=0.443
+```
+
+This is a smoke test, not the 50M campaign.
+
+## 2.2 Cachegrind
+
+`cachegrind --cache-sim=yes --branch-sim=yes` over `bench` and `bench-other`:
+
+| Metric | fixed key | other key |
+|---|---:|---:|
+| I refs | 7,613,054,027 | 7,613,057,448 |
+| D refs | 1,973,539,305 | 1,973,542,685 |
+| D1 misses | 6,136 | 15,170 |
+| LLd misses | 3,098 | 3,098 |
+| Branches | 150,696,634 | 150,696,648 |
+| Mispredicts | 5,720,695 | 5,720,675 |
+
+Instruction/branch counts are near-identical; LLd misses match. The small D1
+difference is not a zero-variance claim and is documented. Full 50M dudect and
+assembly review remain.
+
+## 2.3 Assembly
+
+`cargo rustc -p vorb3 --release --lib -- --emit asm` produced a 7,095-line
+assembly file. A conditional-branch scan found 104 branches; manual review of
+all secret-carrying paths is still required. The GGM hidden path uses masked
+selection rather than secret indexing by construction.
 
 ## 3. Not yet done
 

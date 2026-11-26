@@ -55,6 +55,10 @@ and trees must increase.
 - The 109,376 single-bit signature sweep and structural negative tests pass
   (signature layer, not the cipher).
 - Rain analysis harness: `scripts/rain_analysis.py`.
+- Ran analysis: 4 keys × 64 plaintexts distinct; zero/boundary probes complete;
+  256 random LSB differential pairs produced 256 distinct output differences
+  with no repeat bias. This is sanity checking, not a break or a proof.
+- No local cryptanalytic break found in the sampled tests.
 
 ## 5. Limits
 

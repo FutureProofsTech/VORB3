@@ -48,9 +48,9 @@ def main() -> int:
 
     print("[*] differential sample")
     sk = model.gf_nonzero(model.gf_from_bytes(rng.randbytes(36), p))
-    base = model.gf_from_bytes(rng.randbytes(36), p)
     diffs = Counter()
     for _ in range(256):
+        base = model.gf_from_bytes(rng.randbytes(36), p)
         other = base ^ 1
         c0 = model.rain_encrypt(p, sk, base, consts).ct
         c1 = model.rain_encrypt(p, sk, other, consts).ct

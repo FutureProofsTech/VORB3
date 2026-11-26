@@ -103,9 +103,15 @@ fn dudect(samples: usize) {
     println!("DUDECT smoke: n={samples}, Welch t={t:.3}");
 }
 
-fn bench() {
-    let key = key_from_seed(*SEED);
-    let public = public_key();
+fn bench(seed: [u8; 36]) {
+    let key = key_from_seed(seed);
+    let public = match key.public_key() {
+        Ok(public) => public,
+        Err(_) => {
+            eprintln!("invalid benchmark key");
+            std::process::exit(2);
+        }
+    };
     let mut signature = [0u8; 13_672];
     let start = Instant::now();
     for _ in 0..10 {
@@ -155,7 +161,14 @@ fn main() {
             let n = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(10_000);
             stress(n);
         }
-        Some("bench") | None => bench(),
+        Some("bench") | None => bench(*SEED),
+        Some("bench-other") => {
+            let mut seed = *SEED;
+            if let Some(byte) = seed.get_mut(0) {
+                *byte ^= 0x5A;
+            }
+            bench(seed);
+        }
         Some(other) => {
             eprintln!("unknown command: {other}");
             std::process::exit(2);

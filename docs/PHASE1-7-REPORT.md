@@ -156,6 +156,9 @@ inverse self-consistency: 2,000 values       PASS
   **not yet met**; it remains an optimisation goal, not a claim.
 - **KAT:** signature SHA-256 remains
   `c073c7e3f7b31192ba1932f9ed990b32bc4f321453347a23837803ef4fa9b68b`.
+- **Attack checkpoint:** 109,376 single-bit mutations rejected; 1-hour fuzz
+  PASS (207,402 executions, no crash artifacts); dudect smoke t=0.443; Rain
+  differential sanity sample clean. Details in `PHASE7-ATTACK-REPORT.md`.
 
 ## 4. What is not done yet
 
