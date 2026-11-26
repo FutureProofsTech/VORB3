@@ -10,3 +10,4 @@ evidence/
 fuzz/artifacts/
 fuzz/corpus/verify/*
 !fuzz/corpus/verify/seed
+fuzz/fuzz-*.log
