@@ -96,10 +96,18 @@ impl SecretKey {
     }
 }
 
+impl SecretKey {
+    /// Wipes the seed in place.
+    #[inline]
+    pub(crate) fn wipe(&mut self) {
+        wipe_bytes(&mut self.seed);
+    }
+}
+
 impl Drop for SecretKey {
     #[inline]
     fn drop(&mut self) {
-        wipe_bytes(&mut self.seed);
+        self.wipe();
     }
 }
 
@@ -121,6 +129,8 @@ impl ExpandedSecretKey {
         blake3::derive_key("VORB3-KEYGEN-PT-V1", &seed.seed, &mut pt_bytes);
         let sk = nonzero(F288::from_bytes(sk_bytes));
         let pt = nonzero(F288::from_bytes(pt_bytes));
+        wipe_bytes(&mut sk_bytes);
+        wipe_bytes(&mut pt_bytes);
         Self {
             sk,
             pt,
@@ -139,12 +149,20 @@ impl ExpandedSecretKey {
     }
 }
 
-impl Drop for ExpandedSecretKey {
+impl ExpandedSecretKey {
+    /// Wipes the expanded key material in place.
     #[inline]
-    fn drop(&mut self) {
+    pub(crate) fn wipe(&mut self) {
         self.sk.wipe();
         self.pt.wipe();
         wipe_bytes(&mut self.seed);
+    }
+}
+
+impl Drop for ExpandedSecretKey {
+    #[inline]
+    fn drop(&mut self) {
+        self.wipe();
     }
 }
 
@@ -179,5 +197,28 @@ fn write_field(bytes: &mut [u8; 72], offset: usize, value: F288) {
 
 #[inline]
 fn nonzero(value: F288) -> F288 {
-    if value.is_zero() { F288::ONE } else { value }
+    let zero = value.ct_is_zero();
+    F288::ct_select(zero, value, F288::ONE)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ExpandedSecretKey, SecretKey};
+
+    #[test]
+    fn compact_key_wipe_clears_seed() {
+        let mut key = SecretKey::from_seed([0x5Au8; 36]);
+        key.wipe();
+        assert!(key.seed.iter().all(|byte| *byte == 0));
+    }
+
+    #[test]
+    fn expanded_key_wipe_clears_all_fields() {
+        let compact = SecretKey::from_seed([0xA5u8; 36]);
+        let mut expanded = ExpandedSecretKey::from_seed(&compact);
+        expanded.wipe();
+        assert!(expanded.sk.is_zero());
+        assert!(expanded.pt.is_zero());
+        assert!(expanded.seed.iter().all(|byte| *byte == 0));
+    }
 }

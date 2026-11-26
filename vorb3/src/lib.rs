@@ -11,7 +11,10 @@
 //! implements Rain-SP1; Phase 5 implements GGM/Merkle/transcript; Phase 6
 //! implements `QuickSilver`, sign/verify, and the fixed signature type; Phase 7
 //! adds streaming GGM/Merkle, masked hidden selection, zeroization, and
-//! fixed-work verification. Profile constants are the source of truth.
+//! fixed-work verification; the attack checkpoint adds the 109,376-bit sweep,
+//! 1-hour fuzz, 32 KiB stack target, and Kani/Miri evidence. This is not a
+//! release certificate and no external audit is claimed. Profile constants are
+//! the source of truth.
 //!
 //! # Doctrine
 //!

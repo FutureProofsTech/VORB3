@@ -3,8 +3,11 @@
 //! These are compiled only under `cfg(kani)`. They prove bounded functional
 //! properties; they are not a cryptographic security proof.
 
+use crate::SIGNATURE_LEN;
 use crate::ct::{CtChoice, ct_eq_u64};
 use crate::field::F288;
+use crate::keys::{ExpandedSecretKey, SecretKey};
+use crate::sign::{sign_into, verify_bytes};
 
 #[kani::proof]
 fn field_encoding_roundtrip() {

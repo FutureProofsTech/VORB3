@@ -12,6 +12,9 @@ cargo clippy --workspace --all-targets --all-features --locked --offline -- -D w
 printf '== tests ==\n'
 cargo test --workspace --locked --offline
 
+printf '== stack target (release, 32 KiB) ==\n'
+VORB3_STACK_KB=32 cargo test --package vorb3 --test stack --release --locked --offline
+
 printf '== release build ==\n'
 cargo build --workspace --release --locked --offline
 

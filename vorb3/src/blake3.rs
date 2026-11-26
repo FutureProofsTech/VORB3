@@ -340,7 +340,7 @@ struct Hasher {
 }
 
 impl Hasher {
-    #[inline]
+    #[inline(never)]
     const fn new(key_words_value: [u32; 8], flags: u32) -> Self {
         Self {
             key_words: key_words_value,
@@ -440,7 +440,10 @@ pub fn keyed_hash(key: [u8; KEY_LEN], data: &[u8]) -> [u8; OUT_LEN] {
 }
 
 /// Computes the 32-byte derive-key context key for a context string.
-#[inline]
+///
+/// Out of line: `derive_key` and `Wh512Hasher::new` call this while their own
+/// BLAKE3 state is live, so inlining would stack two 54-level CV towers.
+#[inline(never)]
 fn context_key(context: &str) -> [u8; OUT_LEN] {
     let mut key = [0u8; OUT_LEN];
     hash_internal(context.as_bytes(), IV, DERIVE_KEY_CONTEXT).root_bytes(&mut key);
@@ -450,6 +453,11 @@ fn context_key(context: &str) -> [u8; OUT_LEN] {
 /// Writes a BLAKE3 derive-key output of any length.
 #[inline]
 pub fn derive_key(context: &str, data: &[u8], out: &mut [u8]) {
+    derive_key_inner(context, data, out);
+}
+
+#[inline(never)]
+fn derive_key_inner(context: &str, data: &[u8], out: &mut [u8]) {
     let key = context_key(context);
     hash_internal(data, key_words(key), DERIVE_KEY_MATERIAL).root_bytes(out);
 }
@@ -461,7 +469,7 @@ pub(crate) struct DeriveKeyHasher {
 }
 
 impl DeriveKeyHasher {
-    #[inline]
+    #[inline(never)]
     pub(crate) fn new(context: &str) -> Self {
         let key = context_key(context);
         Self {
@@ -489,7 +497,7 @@ pub(crate) struct Wh512Hasher {
 }
 
 impl Wh512Hasher {
-    #[inline]
+    #[inline(never)]
     pub(crate) fn new() -> Self {
         let left_key = context_key("VORB3-WH512-A-V1");
         let right_key = context_key("VORB3-WH512-B-V1");
@@ -520,6 +528,11 @@ impl Wh512Hasher {
 #[must_use]
 #[inline]
 pub fn wh512(data: &[u8]) -> [u8; 64] {
+    wh512_inner(data)
+}
+
+#[inline(never)]
+fn wh512_inner(data: &[u8]) -> [u8; 64] {
     let mut hasher = Wh512Hasher::new();
     hasher.update(data);
     hasher.finalize()

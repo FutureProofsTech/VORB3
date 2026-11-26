@@ -248,11 +248,16 @@ vectors; KAT manifest.
 
 ## F-21 — Stack
 
-**Status:** Pending measurement; 64 KB hard cap; no crypto shrink.
+**Status:** Resolved for the no-copy API. `sign_into` and `verify_bytes` each
+fit a 32 KiB release thread with caller-owned output; a full `sign_into` call
+with the 13,672-byte output on the stack fits 64 KiB. Debug builds use 64 KiB.
+**Evidence:** `vorb3/tests/stack.rs`; `docs/PHASE1-7-REPORT.md` §8.2.
 
 ## F-22 — Rain round security
 
-**Status:** Pending Phase-4 cryptanalysis; 15 rounds baseline.
+**Status:** Local cryptanalysis checkpoint; 15 rounds remains a baseline, not a
+proof. Differential composition bound ≈2^-258; linear/algebraic margins open.
+**Evidence:** `docs/RAIN-CRYPTANALYSIS.md`.
 
 ## F-23 — Domain label collisions
 
@@ -264,7 +269,7 @@ vectors; KAT manifest.
 
 ## F-25 — Binary MDS vs field VOLE
 
-**Status:** Pending D15; resolves the proof-compatibility issue.
+**Status:** Resolved by D15: field-linear Rain-SP1 replaces the binary MDS.
 
 ## F-26 — Hidden-leaf budget
 
@@ -297,8 +302,8 @@ w* field.
 
 ## F-33 — 256-bit field soundness shortfall
 
-**Status:** **Pending D21.** Conservative budget ≈125-bit quantum. 288/320 are
-≈140/≈156. Do not freeze 256 with a 128-bit claim.
+**Status:** Resolved by D21. SP-288/35 has a conservative ≈140-bit quantum
+floor; the 256-bit profile is not used for a 128-bit claim.
 
 ---
 
@@ -309,6 +314,31 @@ w* field.
 - [x] D17 signature layout approved
 - [x] D19 polynomial for the chosen profile re-verified (0xC03)
 - [x] D21 profile selected: **SP-288/35**
-- [ ] Phase-0 spec version bumped with the chosen profile
-- [ ] KAT digests regenerated for the chosen profile
+- [x] Phase-0 spec version records SP-288/35
+- [x] KAT digests regenerated for SP-288/35
 - [ ] User signs off Phase 0
+
+---
+
+## D22 — Phase 7 operational caps
+
+**Status:** Accepted for the local checkpoint.
+
+**Context:** The original assurance plan listed a 50M dudect campaign and a
+72-hour fuzz soak. At measured release speeds, 50M sign samples alone would take
+about 20 days on one core; the 72-hour soak was explicitly deferred by
+direction.
+
+**Choice:**
+- 32 KiB per-operation release stack cap for `sign_into` / `verify_bytes`;
+  64 KiB for a full sign call with the output buffer on the stack.
+- 20,000-sample randomized dudect tests for signing and verification, with
+  `|t| < 4.5`; the 50M target is superseded as impractical and is not claimed.
+- 1-hour fuzz checkpoint recorded; the 72-hour / 1B soak remains deferred.
+
+**Consequences:** no “constant-time” or “fuzz-complete” claim; reports state
+the measured scope. Any future release still needs the deferred soak, external
+review, and the open Rain-SP1 cryptanalysis items.
+
+**Evidence:** `vorb3/tests/stack.rs`, `tools/attack/src/main.rs`,
+`docs/SIDE-CHANNEL.md`, `docs/PHASE7-ATTACK-REPORT.md`.

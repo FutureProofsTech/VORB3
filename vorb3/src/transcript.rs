@@ -30,46 +30,71 @@ impl Transcript {
 
     /// Absorbs a labelled, length-framed byte string.
     pub fn absorb(&mut self, label: &str, data: &[u8]) {
-        let label_bytes = label.as_bytes();
-        let mut hasher = Wh512Hasher::new();
-        hasher.update(b"VORB3-TRANSCRIPT-ABSORB-V1");
-        hasher.update(&self.state);
-        update_length(&mut hasher, label_bytes.len());
-        hasher.update(label_bytes);
-        update_length(&mut hasher, data.len());
-        hasher.update(data);
-        self.state = hasher.finalize();
+        self.state = absorb_state(&self.state, label, data);
     }
 
     /// Squeezes up to 64 labelled bytes, then ratchets the state.
     pub fn squeeze(&mut self, label: &str, out: &mut [u8]) {
-        let label_bytes = label.as_bytes();
-        let output_len = out.len();
-        let mut hasher = Wh512Hasher::new();
-        hasher.update(b"VORB3-TRANSCRIPT-SQUEEZE-V1");
-        hasher.update(&self.state);
-        update_length(&mut hasher, label_bytes.len());
-        hasher.update(label_bytes);
-        update_length(&mut hasher, 8);
-        hasher.update(&u64::try_from(output_len).unwrap_or(u64::MAX).to_le_bytes());
-        let block = hasher.finalize();
-
-        let take = if output_len < STATE_LEN {
-            output_len
+        let block = squeeze_block(&self.state, label, out.len());
+        let take = if out.len() < STATE_LEN {
+            out.len()
         } else {
             STATE_LEN
         };
         if let (Some(dst), Some(src)) = (out.get_mut(..take), block.get(..take)) {
             dst.copy_from_slice(src);
         }
-
-        let mut ratchet = Wh512Hasher::new();
-        ratchet.update(b"VORB3-TRANSCRIPT-RATCHET-V1");
-        ratchet.update(&self.state);
-        update_length(&mut ratchet, output_len);
-        ratchet.update(block.get(..take).unwrap_or(&[]));
-        self.state = ratchet.finalize();
+        self.state = ratchet_state(&self.state, out.len(), &block);
     }
+}
+
+/// Absorb helper. Kept out of line so the transcript API frame does not carry
+/// two BLAKE3 states at once.
+#[inline(never)]
+fn absorb_state(state: &[u8; STATE_LEN], label: &str, data: &[u8]) -> [u8; STATE_LEN] {
+    let label_bytes = label.as_bytes();
+    let mut hasher = Wh512Hasher::new();
+    hasher.update(b"VORB3-TRANSCRIPT-ABSORB-V1");
+    hasher.update(state);
+    update_length(&mut hasher, label_bytes.len());
+    hasher.update(label_bytes);
+    update_length(&mut hasher, data.len());
+    hasher.update(data);
+    hasher.finalize()
+}
+
+/// Squeeze helper. The block and ratchet hashers are separate frames.
+#[inline(never)]
+fn squeeze_block(state: &[u8; STATE_LEN], label: &str, output_len: usize) -> [u8; STATE_LEN] {
+    let label_bytes = label.as_bytes();
+    let mut hasher = Wh512Hasher::new();
+    hasher.update(b"VORB3-TRANSCRIPT-SQUEEZE-V1");
+    hasher.update(state);
+    update_length(&mut hasher, label_bytes.len());
+    hasher.update(label_bytes);
+    update_length(&mut hasher, 8);
+    hasher.update(&u64::try_from(output_len).unwrap_or(u64::MAX).to_le_bytes());
+    hasher.finalize()
+}
+
+/// Ratchet helper, separate from the squeeze frame.
+#[inline(never)]
+fn ratchet_state(
+    state: &[u8; STATE_LEN],
+    output_len: usize,
+    block: &[u8; STATE_LEN],
+) -> [u8; STATE_LEN] {
+    let take = if output_len < STATE_LEN {
+        output_len
+    } else {
+        STATE_LEN
+    };
+    let mut ratchet = Wh512Hasher::new();
+    ratchet.update(b"VORB3-TRANSCRIPT-RATCHET-V1");
+    ratchet.update(state);
+    update_length(&mut ratchet, output_len);
+    ratchet.update(block.get(..take).unwrap_or(&[]));
+    ratchet.finalize()
 }
 
 #[inline]

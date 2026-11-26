@@ -1,7 +1,9 @@
-# VORB3-SP1 — Security Case (Phase 0)
+# VORB3-SP1 — Security Case
 
-**Status:** Draft for approval. **Not a proof of computational security.**
+**Status:** Phase 7 local implementation checkpoint (2026-11-26). **Not a proof
+of computational security and not an external audit.**
 **Scope:** SP-128/SP-128+/SP-160 parameter families; the equations are shared.
+The implementation target is the frozen SP-288/35 profile.
 
 ---
 
@@ -198,9 +200,31 @@ A failure of any assumption is a release blocker.
 
 ---
 
+## 6.1 Implementation evidence (Phase 7)
+
+- Signature KAT is byte-identical to the independent Python model.
+- 109,376 single-bit mutations rejected; structural truncation/wrong-key/
+  wrong-message/all-zero tests rejected.
+- 1-hour fuzz: 207,402 executions, zero crashes; 72-hour soak deferred.
+- 32 KiB per-operation release stack for `sign_into`/`verify_bytes`; 64 KiB
+  full sign with the output buffer on the stack.
+- Canary guard regions survive signing; no 16-byte seed fragment appears in the
+  signature; explicit wipe tests cover witness and key types.
+- Kani helper proofs: 6/6 (field encoding/additivity, CT equality/select,
+  masked GGM selection, byte wipe); Miri CT/zeroization/profile/short BLAKE3
+  pass.
+- dudect/cachegrind/assembly evidence is in `docs/SIDE-CHANNEL.md` and
+  `docs/PHASE7-ATTACK-REPORT.md`.
+- Rain-SP1 local analysis is in `docs/RAIN-CRYPTANALYSIS.md`.
+
 ## 7. What is not proved
 
 - Computational 128-bit security of Rain-SP1.
+- Full symbolic Kani correctness/side-channel proofs for the 288-bit,
+  15-round, 35-tree sign/verify (a concrete full-path harness exceeded the
+  15-minute local budget).
+- Constant-time execution or absolute zeroization of compiler temporaries.
+- 72-hour / 1-billion-execution fuzzing.
 - A machine-checked QuickSilver soundness/ZK proof for this exact circuit.
 - WH512 combiner security beyond the random-oracle-style assumption.
 - Side-channel immunity or absolute zeroization.

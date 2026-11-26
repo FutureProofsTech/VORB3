@@ -77,6 +77,23 @@ fn welch_t(a: &[f64], b: &[f64]) -> f64 {
     (mean_a - mean_b) / (var_a / n + var_b / m).sqrt()
 }
 
+fn random_bit(state: &mut u64) -> bool {
+    *state ^= *state << 13;
+    *state ^= *state >> 7;
+    *state ^= *state << 17;
+    *state & 1 == 0
+}
+
+fn summarize(name: &str, samples: usize, first: &[f64], second: &[f64]) -> f64 {
+    let mean_first = first.iter().sum::<f64>() / first.len() as f64;
+    let mean_second = second.iter().sum::<f64>() / second.len() as f64;
+    let t = welch_t(first, second);
+    println!(
+        "{name}: n={samples}, mean_a={mean_first:.0}ns, mean_b={mean_second:.0}ns, Welch t={t:.3}"
+    );
+    t
+}
+
 fn dudect(samples: usize) {
     let fixed = key_from_seed(*SEED);
     let mut other_seed = *SEED;
@@ -84,23 +101,65 @@ fn dudect(samples: usize) {
         *byte ^= 0x5A;
     }
     let other = key_from_seed(other_seed);
-    let mut fixed_times = Vec::with_capacity(samples / 2);
-    let mut other_times = Vec::with_capacity(samples / 2);
-    for index in 0..samples {
-        let mut signature = [0u8; 13_672];
-        let key = if index & 1 == 0 { &fixed } else { &other };
+    let mut signature = [0u8; 13_672];
+    for _ in 0..8 {
+        assert!(sign_into(MESSAGE, &fixed, &[0u8; 32], &mut signature).is_ok());
+        assert!(sign_into(MESSAGE, &other, &[0u8; 32], &mut signature).is_ok());
+    }
+    let mut first_times = Vec::with_capacity(samples);
+    let mut second_times = Vec::with_capacity(samples);
+    let mut state = 0x9E37_79B9_7F4A_7C15u64;
+    for _ in 0..samples {
+        let use_first = random_bit(&mut state);
+        let key = if use_first { &fixed } else { &other };
         let start = Instant::now();
         let result = sign_into(MESSAGE, key, &[0u8; 32], &mut signature);
         let elapsed = start.elapsed().as_nanos() as f64;
         assert!(result.is_ok());
-        if index & 1 == 0 {
-            fixed_times.push(elapsed);
+        if use_first {
+            first_times.push(elapsed);
         } else {
-            other_times.push(elapsed);
+            second_times.push(elapsed);
         }
     }
-    let t = welch_t(&fixed_times, &other_times);
-    println!("DUDECT smoke: n={samples}, Welch t={t:.3}");
+    let t = summarize("DUDECT-SIGN", samples, &first_times, &second_times);
+    if t.abs() >= 4.5 {
+        eprintln!("DUDECT-SIGN FAILED: |t| >= 4.5");
+        std::process::exit(1);
+    }
+}
+
+fn dudect_verify(samples: usize) {
+    let public = public_key();
+    let mut invalid = *EXPECTED_SIG;
+    if let Some(byte) = invalid.get_mut(13_671) {
+        *byte ^= 0x01;
+    }
+    for _ in 0..8 {
+        assert!(verify_bytes(MESSAGE, &public, EXPECTED_SIG).is_ok());
+        assert!(verify_bytes(MESSAGE, &public, &invalid).is_err());
+    }
+    let mut first_times = Vec::with_capacity(samples);
+    let mut second_times = Vec::with_capacity(samples);
+    let mut state = 0xD1B5_4A32_D192_ED03u64;
+    for _ in 0..samples {
+        let use_valid = random_bit(&mut state);
+        let candidate = if use_valid { EXPECTED_SIG } else { &invalid };
+        let start = Instant::now();
+        let result = verify_bytes(MESSAGE, &public, candidate);
+        let elapsed = start.elapsed().as_nanos() as f64;
+        assert_eq!(result.is_ok(), use_valid);
+        if use_valid {
+            first_times.push(elapsed);
+        } else {
+            second_times.push(elapsed);
+        }
+    }
+    let t = summarize("DUDECT-VERIFY", samples, &first_times, &second_times);
+    if t.abs() >= 4.5 {
+        eprintln!("DUDECT-VERIFY FAILED: |t| >= 4.5");
+        std::process::exit(1);
+    }
 }
 
 fn bench(seed: [u8; 36]) {
@@ -112,15 +171,19 @@ fn bench(seed: [u8; 36]) {
             std::process::exit(2);
         }
     };
-    let mut signature = [0u8; 13_672];
+    let mut storage = std::vec![0u8; 13_672];
+    let slice: &mut [u8] = &mut storage;
+    let Ok(signature) = <&mut [u8; 13_672]>::try_from(slice) else {
+        return;
+    };
     let start = Instant::now();
     for _ in 0..10 {
-        assert!(sign_into(MESSAGE, &key, &[0u8; 32], &mut signature).is_ok());
+        assert!(sign_into(MESSAGE, &key, &[0u8; 32], signature).is_ok());
     }
     let sign_time = start.elapsed() / 10;
     let start = Instant::now();
     for _ in 0..10 {
-        assert!(verify_bytes(MESSAGE, &public, &signature).is_ok());
+        assert!(verify_bytes(MESSAGE, &public, signature).is_ok());
     }
     let verify_time = start.elapsed() / 10;
     println!("BENCH sign={sign_time:?} verify={verify_time:?}");
@@ -156,6 +219,10 @@ fn main() {
         Some("dudect") => {
             let n = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(2_000);
             dudect(n);
+        }
+        Some("dudect-verify") => {
+            let n = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(2_000);
+            dudect_verify(n);
         }
         Some("stress") => {
             let n = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(10_000);

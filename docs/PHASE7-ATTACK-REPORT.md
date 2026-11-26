@@ -1,149 +1,256 @@
 # VORB3 — Phase 7 Adversarial Campaign Report
 
-**Status:** 1-hour fuzz checkpoint complete; the 72-hour soak is scheduled for a
-later stage as directed.
+**Status:** local hardening/attack checkpoint complete. The 72-hour fuzz soak is
+deferred by direction and is not claimed.
 **Profile:** SP-288/35, 13,672-byte signature.
 **No external audit is claimed.**
 
 ---
 
-## 1. Completed evidence
+## 1. Signature rejection
 
-### 1.1 Exhaustive single-bit signature sweep
+### 1.1 Exhaustive single-bit sweep
 
 Tool: `tools/attack` (`bitflip`), release build, 16 workers.
 
-```
-signature bytes: 13,672
-single-bit mutations: 109,376
-accepted mutations: 0
-result: BITFLIP PASS
-wall: 4m33.8s, user CPU: 57m25s
+```text
+signature bytes:       13,672
+single-bit mutations:  109,376
+accepted mutations:    0
+result:                BITFLIP PASS
+final wall:            4m46s (user CPU 59m28s, 16 workers)
 ```
 
-Every single-bit mutation of the KAT signature was rejected by
-`verify_bytes`.
+The sweep was re-run on the final release binary after the Phase 7
+stack/zeroization refactor and again rejected every single-bit mutation of the
+KAT signature.
 
 ### 1.2 Structural negative tests
 
 `vorb3/tests/attack.rs`:
 
-- sampled bit flips across salt, h2, wire_d, U, V, out_tag, copath, hidden
+- sampled bit flips across salt, h2, wire_d, U, V, out_tag, copath, and hidden
   commitments;
-- truncation by one byte;
-- one trailing byte;
+- truncation by one byte and one trailing byte;
 - all-zero signature;
 - wrong message;
 - wrong public key.
 
-All rejected.
+All rejected with `InvalidSignature` or a parse error.
 
-### 1.3 Stack
+### 1.3 Canary and secret-fragment scan
 
-`vorb3/tests/stack.rs`:
+`signature_buffer_canary_and_secret_scan`:
 
-- sign in a 64 KiB thread: PASS;
-- verify in a 64 KiB thread: PASS;
-- sign+verify sequentially in one 64 KiB thread: overflow.
+- signs into a heap guard region surrounded by 256-byte `0xA5` canaries;
+- verifies both canaries are unchanged after signing;
+- verifies the signature is byte-identical to the KAT;
+- scans the output for every 16-byte window of the 36-byte seed and the 36-byte
+  expanded secret key; finds none.
 
-The 64 KiB hard cap is met **per operation** in the tested configuration. The
-32 KiB target is **not** met yet. The sequential inlining case is documented;
-the API provides `sign_into` / `verify_bytes` for no-copy operation.
+This is a bounded buffer/leakage check, not a whole-memory remanence proof.
 
-### 1.4 Constant-time hardening
+---
 
-- Hidden-leaf path and copath selection use masked `CtChoice` scans.
-- No secret-dependent tree indexing remains in `hidden_opening`.
-- Verification evaluates h2, proof batch, output tag, and mask with one uniform
-  error.
-- Signing wipes `master`, `u/q`, wire values, tags, `A0/A1`, mask values, and
+## 2. Stack
+
+`vorb3/tests/stack.rs`, release profile, `VORB3_STACK_KB=32`:
+
+```text
+sign_into, heap output buffer, 32 KiB thread:   PASS
+verify_bytes, 32 KiB thread:                    PASS
+sign_into, output buffer on stack, 64 KiB:      PASS
+```
+
+Debug builds use a 64 KiB default because unoptimized frames are larger; the
+gate explicitly runs the release 32 KiB test.
+
+Measured changes that made the target reachable:
+
+- BLAKE3/WH512 helpers are outlined so two 54-level CV towers are not summed
+  in one frame;
+- transcript absorb/squeeze/ratchet use separate frames;
+- GGM root traversal is an explicit DFS stack instead of recursion;
+- `Openings`/`Wires` are written in place instead of returned by value;
+- `sign_into` and `verify_bytes` are outlined from callers.
+
+The 32 KiB figure covers the library's internal working set with a caller-owned
+signature buffer. A caller that places the 13,672-byte output on the stack
+needs the 64 KiB case. The old sequential sign+verify-in-one-thread test is not
+part of the API contract.
+
+---
+
+## 3. Constant-time and zeroization hardening
+
+- Hidden-leaf path and copath selection use full-width `CtChoice` masks;
+  `hidden_opening` has no branch on the hidden index.
+- `nonzero` reductions for secret-derived values use CT select rather than a
+  zero branch.
+- Verification evaluates h2, proof batch, output tag, and mask, then returns one
+  uniform `InvalidSignature` for content failures.
+- Signing wipes `master`, openings, wire values, tags, `A0/A1`, mask values, and
   per-wire openings.
-- `RainWitness` wipes its witness arrays on drop.
+- `RainWitness`, `SecretKey`, and `ExpandedSecretKey` have explicit wipe methods;
+  `Drop` calls them. Tests inspect the wiped fields.
+- Key expansion wipes the local `sk`/`pt` byte arrays before returning.
+- The GGM root pass wipes parent/child seed copies as it traverses.
 
-### 1.5 KAT
-
-End-to-end signature remains byte-identical to the independent Python model:
-
-```
-SHA-256 c073c7e3f7b31192ba1932f9ed990b32bc4f321453347a23837803ef4fa9b68b
-```
+Absolute zeroization of registers and compiler temporaries is not claimed; the
+wipes are best-effort with `black_box` barriers.
 
 ---
 
-## 2. Running: 1-hour fuzzing
+## 4. Timing evidence
 
-Command:
+### 4.1 Signing
 
-```bash
-cd fuzz
-cargo +nightly fuzz run verify -- \
-  -max_total_time=3600 -jobs=16 -workers=16 -print_final_stats=1
+`tools/attack dudect 20000`, randomized class order, KAT key vs a second key:
+
+```text
+n = 20,000
+mean class A = 34,904,530 ns
+mean class B = 34,908,566 ns
+Welch t = -0.494
 ```
 
-Target:
+### 4.2 Verification
 
-- fixed KAT public key/message;
-- fuzzes the 13,672-byte signature;
-- treats any accepted non-KAT signature as a crash;
-- isolated tooling (`libfuzzer-sys`), not a shipped dependency.
+`tools/attack dudect-verify 20000`, valid KAT signature vs one corrupted
+signature:
 
-Result: **PASS** — 16 jobs, **207,402 executions**, 3602 s wall per job, zero
-crash artifacts, `FUZZ_EXIT=0`. The target found no accepted non-KAT signature.
-The 72-hour soak remains deferred.
+```text
+n = 20,000
+mean class A = 19,183,474 ns
+mean class B = 19,186,377 ns
+Welch t = -0.996
+```
 
-**72-hour soak:** deferred to a later stage as directed.
+Both campaigns are below the `|t| < 4.5` threshold. The means differ by about
+0.01%, consistent with no key/signature-class timing split at this sample size.
+
+The 50M-sample target was not run: at measured release rates it would take
+about 20 days for signing alone on one core. This is a measured, reproducible
+20k-sample campaign, not a claim that all microarchitectural leakage is absent.
+
+Verification is fixed-work: the h2 check, root reconstruction, wire openings,
+proof batch, output tag, and mask check are all computed before the single
+accept/reject branch.
 
 ---
 
-## 2.1 Timing smoke
+## 5. Cachegrind
 
-`tools/attack dudect 2000` on an otherwise idle machine:
-
-```
-n=2000, Welch t=0.443
-```
-
-This is a smoke test, not the 50M campaign.
-
-## 2.2 Cachegrind
-
-`cachegrind --cache-sim=yes --branch-sim=yes` over `bench` and `bench-other`:
+`cachegrind --cache-sim=yes --branch-sim=yes` over `bench` (KAT key) and
+`bench-other` (second valid key), release build, 10 signs + 10 verifies each:
 
 | Metric | fixed key | other key |
 |---|---:|---:|
-| I refs | 7,613,054,027 | 7,613,057,448 |
-| D refs | 1,973,539,305 | 1,973,542,685 |
-| D1 misses | 6,136 | 15,170 |
-| LLd misses | 3,098 | 3,098 |
-| Branches | 150,696,634 | 150,696,648 |
-| Mispredicts | 5,720,695 | 5,720,675 |
+| I refs | 7,740,065,543 | 7,740,071,064 |
+| D refs | 2,114,285,317 | 2,114,290,587 |
+| D1 misses | 3,876 | 9,179 |
+| LLd misses | 3,005 | 3,005 |
+| Branches | 138,267,114 | 138,267,128 |
+| Mispredicts | 5,090,543 | 5,090,526 |
 
-Instruction/branch counts are near-identical; LLd misses match. The small D1
-difference is not a zero-variance claim and is documented. Full 50M dudect and
-assembly review remain.
-
-## 2.3 Assembly
-
-`cargo rustc -p vorb3 --release --lib -- --emit asm` produced a 7,095-line
-assembly file. A conditional-branch scan found 104 branches; manual review of
-all secret-carrying paths is still required. The GGM hidden path uses masked
-selection rather than secret indexing by construction.
-
-## 3. Not yet done
-
-- dudect 50M / Welch t-test.
-- cachegrind / perf instruction and cache comparison.
-- assembly branch audit.
-- canary memory-remanence scan.
-- Kani proofs for sign/verify.
-- full verification timing-uniformity measurement.
-- Rain-SP1 cryptanalysis dossier.
-- 72-hour fuzz soak.
+Instruction and branch counts differ by a handful out of billions; LLd misses
+are identical. D1-miss counts vary more (3,876 vs 9,179), consistent with code/
+data layout sensitivity; this is documented, not rounded to zero. Instrumented
+wall time was ~1.86/1.83 s per sign and ~1.55/1.52 s per verify under Valgrind;
+native release is ~35 ms/sign and ~19 ms/verify.
 
 ---
 
-## 4. Honest statement
+## 6. Assembly audit
 
-The bitflip result and fuzz target establish rejection of the tested malformed
-signatures. They do not prove cryptographic security. Side-channel, memory, and
-cryptanalytic evidence remain required before any release claim.
+Fresh release assembly (LTO disabled only for readable per-function output):
+
+```text
+file: 8,784 lines
+hidden_opening:   339 lines, 3 conditional branches, 0 cmov, 5 calls
+tree_root:        398 lines, 9 conditional branches, 2 cmov, 6 calls
+verify_bytes:     701 lines, 3 conditional branches, 41 calls
+sign_into:      2,670 lines, 61 conditional branches, 77 calls
+mul_reduce:       331 lines, 7 conditional branches, 25 cmov
+```
+
+Manual source-to-assembly review:
+
+- `mul_reduce` branches are fixed multiplication/reduction loop bounds; the
+  reduction uses masked limb updates.
+- `hidden_opening` branches are loop counters and public slice bounds; the
+  hidden bit is consumed only through masked selection/shifts.
+- `tree_root` branches are the public DFS stack/level/index and bounds checks.
+- `verify_bytes` has only three conditional branches around fixed public
+  control flow.
+- `sign_into`'s 61 branches come from inlined public loops, slice bounds, key
+  validation, and the public ciphertext check; the field, GGM-selection, and
+  Rain paths do not branch on secret witness values.
+
+This is a manual audit aided by `scripts/asm_audit.py`, not a formal
+constant-time verifier. A compiler/ISA change requires re-running it.
+
+---
+
+## 7. Formal and dynamic gates
+
+```text
+cargo kani: 6/6 helper harnesses       PASS
+  field encoding round-trip
+  field additive identities
+  CT equality vs bool
+  CT select vs branch
+  masked GGM selection
+  wipe_bytes clears all bytes
+Miri: CT, zeroization, profile, short BLAKE3  PASS
+cargo test --workspace                PASS
+release + thumbv7em builds            PASS
+zero runtime dependencies             PASS
+```
+
+A concrete full-path Kani harness was attempted; it exceeded a 15-minute budget
+and was removed. Full symbolic Kani proofs of the 288-bit, 15-round, 35-tree
+sign/verify are not tractable with the local tool budget. This remains an
+explicit limitation, not a passed gate.
+
+---
+
+## 8. Fuzzing
+
+```text
+target:            verify
+workers:           16
+wall:              3602 s per worker
+executions:        207,402 total
+crashes:           0
+accepted non-KAT:  0
+artifacts:         none
+FUZZ_EXIT=0
+```
+
+The target fixes the KAT public key/message, fuzzes the 13,672-byte signature,
+and treats any accepted non-KAT signature as a crash. Isolated `libfuzzer-sys`
+tooling; not a shipped dependency.
+
+The 72-hour / 1-billion-execution soak remains **deferred by direction**.
+
+---
+
+## 9. KAT
+
+End-to-end signature remains byte-identical to the independent Python model:
+
+```text
+SHA-256 c073c7e3f7b31192ba1932f9ed990b32bc4f321453347a23837803ef4fa9b68b
+length  13,672 bytes
+```
+
+---
+
+## 10. Honest statement
+
+The signature sweep, structural negative tests, canary scan, stack target,
+cachegrind comparison, assembly review, helper Kani proofs, and 1-hour fuzz
+checkpoint are complete. They do not prove cryptographic security, full
+constant-time execution, or zeroization of every compiler temporary. Rain-SP1
+and the full proof system remain candidate-level, and no external audit exists.

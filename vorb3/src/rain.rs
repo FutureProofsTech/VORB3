@@ -103,9 +103,10 @@ pub struct RainWitness {
     pub(crate) b: [F288; ROUNDS],
 }
 
-impl Drop for RainWitness {
+impl RainWitness {
+    /// Wipes the witness arrays in place.
     #[inline]
-    fn drop(&mut self) {
+    pub(crate) fn wipe(&mut self) {
         for value in &mut self.x {
             value.wipe();
         }
@@ -115,6 +116,13 @@ impl Drop for RainWitness {
         for value in &mut self.b {
             value.wipe();
         }
+    }
+}
+
+impl Drop for RainWitness {
+    #[inline]
+    fn drop(&mut self) {
+        self.wipe();
     }
 }
 
@@ -161,13 +169,25 @@ pub fn encrypt(sk: F288, pt: F288, constants: &RainConstants) -> (F288, RainWitn
 
 #[inline]
 fn nonzero(value: F288) -> F288 {
-    if value.is_zero() { F288::ONE } else { value }
+    let zero = value.ct_is_zero();
+    F288::ct_select(zero, value, F288::ONE)
 }
 
 #[cfg(test)]
 mod tests {
     use super::{RainConstants, encrypt};
     use crate::field::F288;
+
+    #[test]
+    fn witness_wipe_clears_all_fields() {
+        let constants = RainConstants::derive();
+        let (_, witness) = encrypt(F288::from_u64(0x1234), F288::from_u64(0x5678), &constants);
+        let mut witness = witness;
+        witness.wipe();
+        assert!(witness.x.iter().all(|value| value.is_zero()));
+        assert!(witness.y.iter().all(|value| value.is_zero()));
+        assert!(witness.b.iter().all(|value| value.is_zero()));
+    }
 
     #[test]
     fn zero_state_selector_is_set() {

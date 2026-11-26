@@ -23,6 +23,22 @@ pub fn wipe_u64s(limbs: &mut [u64; 5]) {
     black_box(limbs);
 }
 
+#[cfg(kani)]
+mod kani_proofs {
+    use super::wipe_bytes;
+
+    #[kani::proof]
+    fn wipe_bytes_clears_all_bytes() {
+        let mut bytes: [u8; 72] = kani::any();
+        wipe_bytes(&mut bytes);
+        let mut index = 0usize;
+        while index < bytes.len() {
+            assert_eq!(bytes[index], 0);
+            index += 1;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{wipe_bytes, wipe_u64s};

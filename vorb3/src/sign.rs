@@ -21,6 +21,18 @@ const HIDDEN_OFF: usize = 11_432;
 const SECRET_WIRES: usize = 31;
 const MASK_TREE: usize = 31;
 
+/// Secret wire values and their MAC tags.
+struct Wires {
+    values: [F288; SECRET_WIRES],
+    tags: [F288; SECRET_WIRES],
+}
+
+/// Hidden-leaf shares and verifier MACs for one signature.
+struct Openings {
+    u: [F288; TREE_COUNT],
+    q: [F288; TREE_COUNT],
+}
+
 /// Signs `message` with the expanded secret key and 32 bytes of caller entropy.
 ///
 /// # Errors
@@ -44,7 +56,9 @@ pub fn sign(
 ///
 /// Returns [`Error::InvalidSecretKey`] for a degenerate key or
 /// [`Error::InvalidSignature`] if fixed-size assembly fails.
-#[inline]
+///
+/// Kept out of line so callers do not inherit the full signing temporary set.
+#[inline(never)]
 pub fn sign_into(
     message: &[u8],
     secret: &ExpandedSecretKey,
@@ -60,25 +74,43 @@ pub fn sign_into(
     let pk_hash = public_key_hash(&public_key);
     let mut master = master_seed(secret, &public_key, message, entropy);
     let salt = salt_from_master(&master);
-    let roots_bytes = derive_roots(&master, &salt, &pk_hash);
-
     let mut transcript = Transcript::new();
     transcript.absorb("PK", public_key.as_bytes());
     transcript.absorb("SALT", &salt);
     transcript.absorb("MSG", message);
-    transcript.absorb("ROOTS", &roots_bytes);
+    {
+        let mut roots_bytes = [0u8; TREE_COUNT * COMMITMENT_LEN];
+        derive_roots(&master, &salt, &pk_hash, &mut roots_bytes);
+        transcript.absorb("ROOTS", &roots_bytes);
+    }
     let (delta, chi, h2) = squeeze_challenges(&mut transcript);
 
     copy_at(signature, SALT_OFF, &salt);
     copy_at(signature, H2_OFF, &h2);
-    let (mut u_values, mut q_values) = fill_openings(&master, &salt, &pk_hash, &h2, signature);
-    let (mut wire_w, mut tags) =
-        fill_wires(secret.sk, &witness, &u_values, &q_values, delta, signature);
-    let (mut a0, mut a1, out_tag) = prove(&witness, &wire_w, &tags, chi, &constants);
+    let mut wires = Wires {
+        values: [F288::ZERO; SECRET_WIRES],
+        tags: [F288::ZERO; SECRET_WIRES],
+    };
+    let (mut u_star, q_star) = {
+        let mut openings = Openings {
+            u: [F288::ZERO; TREE_COUNT],
+            q: [F288::ZERO; TREE_COUNT],
+        };
+        fill_openings(&master, &salt, &pk_hash, &h2, signature, &mut openings);
+        fill_wires(secret.sk, &witness, &openings, delta, signature, &mut wires);
+        let u_star = openings.u.get(MASK_TREE).copied().unwrap_or(F288::ZERO);
+        let q_star = openings.q.get(MASK_TREE).copied().unwrap_or(F288::ZERO);
+        for value in &mut openings.u {
+            value.wipe();
+        }
+        for value in &mut openings.q {
+            value.wipe();
+        }
+        (u_star, q_star)
+    };
+    let (mut a0, mut a1, out_tag) = prove(&witness, &wires.values, &wires.tags, chi, &constants);
     copy_at(signature, OUT_TAG_OFF, &out_tag.to_bytes());
 
-    let mut u_star = u_values.get(MASK_TREE).copied().unwrap_or(F288::ZERO);
-    let q_star = q_values.get(MASK_TREE).copied().unwrap_or(F288::ZERO);
     let mut v_star = q_star.add_value(u_star.mul_value(delta));
     let masked_u = a0.add_value(v_star);
     let masked_v = a1.add_value(u_star);
@@ -89,16 +121,10 @@ pub fn sign_into(
     a1.wipe();
     u_star.wipe();
     v_star.wipe();
-    for value in &mut u_values {
+    for value in &mut wires.values {
         value.wipe();
     }
-    for value in &mut q_values {
-        value.wipe();
-    }
-    for value in &mut wire_w {
-        value.wipe();
-    }
-    for value in &mut tags {
+    for value in &mut wires.tags {
         value.wipe();
     }
     wipe_bytes(&mut master);
@@ -121,7 +147,9 @@ pub fn verify(message: &[u8], public_key: &PublicKey, signature: &Signature) -> 
 /// # Errors
 ///
 /// Returns [`Error::InvalidSignature`] for any signature-content failure.
-#[inline]
+///
+/// Kept out of line so callers do not inherit the verification temporary set.
+#[inline(never)]
 pub fn verify_bytes(
     message: &[u8],
     public_key: &PublicKey,
@@ -131,16 +159,20 @@ pub fn verify_bytes(
     let salt = read::<SALT_LEN>(bytes, SALT_OFF).unwrap_or([0u8; SALT_LEN]);
     let h2 = read::<H2_LEN>(bytes, H2_OFF).unwrap_or([0u8; H2_LEN]);
     let pk_hash = public_key_hash(public_key);
-    let roots_bytes = reconstruct_roots(bytes, &salt, &pk_hash, &h2);
 
     let mut transcript = Transcript::new();
     transcript.absorb("PK", public_key.as_bytes());
     transcript.absorb("SALT", &salt);
     transcript.absorb("MSG", message);
-    transcript.absorb("ROOTS", &roots_bytes);
+    {
+        let mut roots_bytes = [0u8; TREE_COUNT * COMMITMENT_LEN];
+        reconstruct_roots(bytes, &salt, &pk_hash, &h2, &mut roots_bytes);
+        transcript.absorb("ROOTS", &roots_bytes);
+    }
     let (delta, chi, h2_check) = squeeze_challenges(&mut transcript);
     let h2_ok = h2_check == h2;
-    let q_open = opened_wires(bytes, delta);
+    let mut q_open = [F288::ZERO; SECRET_WIRES];
+    opened_wires(bytes, delta, &mut q_open);
     let proof_ok = check_proof(public_key, bytes, delta, chi, &q_open, &constants);
     if h2_ok && proof_ok {
         Ok(())
@@ -165,6 +197,7 @@ fn public_key_hash(public_key: &PublicKey) -> [u8; COMMITMENT_LEN] {
     hasher.finalize()
 }
 
+#[inline(never)]
 fn master_seed(
     secret: &ExpandedSecretKey,
     public_key: &PublicKey,
@@ -198,8 +231,8 @@ fn derive_roots(
     master: &[u8; FIELD_BYTES],
     salt: &[u8; SALT_LEN],
     pk_hash: &[u8; COMMITMENT_LEN],
-) -> [u8; TREE_COUNT * COMMITMENT_LEN] {
-    let mut roots = [0u8; TREE_COUNT * COMMITMENT_LEN];
+    roots: &mut [u8; TREE_COUNT * COMMITMENT_LEN],
+) {
     for index in 0..TREE_COUNT {
         let tree_index = u16::try_from(index).unwrap_or(0);
         let root = tree_root(
@@ -208,9 +241,8 @@ fn derive_roots(
             salt,
             pk_hash,
         );
-        copy_at(&mut roots, index.wrapping_mul(COMMITMENT_LEN), &root);
+        copy_at(roots, index.wrapping_mul(COMMITMENT_LEN), &root);
     }
-    roots
 }
 
 fn fill_openings(
@@ -219,19 +251,15 @@ fn fill_openings(
     pk_hash: &[u8; COMMITMENT_LEN],
     h2: &[u8; H2_LEN],
     signature: &mut [u8; SIGNATURE_LEN],
-) -> ([F288; TREE_COUNT], [F288; TREE_COUNT]) {
-    let mut u_values = [F288::ZERO; TREE_COUNT];
-    let mut q_values = [F288::ZERO; TREE_COUNT];
+    openings: &mut Openings,
+) {
     for index in 0..TREE_COUNT {
         let tree_index = u16::try_from(index).unwrap_or(0);
         let alpha = h2.get(index).copied().unwrap_or(0);
-        let (share, commitment, copath) = hidden_opening(
-            tree_root_seed(master, tree_index),
-            tree_index,
-            alpha,
-            salt,
-            pk_hash,
-        );
+        let mut root_seed = tree_root_seed(master, tree_index);
+        let (share, commitment, copath) =
+            hidden_opening(root_seed, tree_index, alpha, salt, pk_hash);
+        wipe_bytes(&mut root_seed);
         for level in 0..TREE_DEPTH {
             let offset = COPATH_OFF
                 .wrapping_add(index.wrapping_mul(288))
@@ -245,49 +273,48 @@ fn fill_openings(
             HIDDEN_OFF.wrapping_add(index.wrapping_mul(COMMITMENT_LEN)),
             &commitment,
         );
-        if let Some(slot) = u_values.get_mut(index) {
+        if let Some(slot) = openings.u.get_mut(index) {
             *slot = share;
         }
-        if let Some(slot) = q_values.get_mut(index) {
+        if let Some(slot) = openings.q.get_mut(index) {
             *slot = field_from_commitment(&commitment);
         }
     }
-    (u_values, q_values)
 }
 
 fn fill_wires(
     sk: F288,
     witness: &RainWitness,
-    u_values: &[F288; TREE_COUNT],
-    q_values: &[F288; TREE_COUNT],
+    openings: &Openings,
     delta: F288,
     signature: &mut [u8; SIGNATURE_LEN],
-) -> ([F288; SECRET_WIRES], [F288; SECRET_WIRES]) {
-    let mut wire_w = [F288::ZERO; SECRET_WIRES];
-    if let Some(slot) = wire_w.get_mut(0) {
+    wires: &mut Wires,
+) {
+    if let Some(slot) = wires.values.get_mut(0) {
         *slot = sk;
     }
     for round in 0..15 {
         if let Some(value) = witness.y.get(round).copied()
-            && let Some(slot) = wire_w.get_mut(1usize.wrapping_add(round))
+            && let Some(slot) = wires.values.get_mut(1usize.wrapping_add(round))
         {
             *slot = value;
         }
         if let Some(value) = witness.b.get(round).copied()
-            && let Some(slot) = wire_w.get_mut(1usize.wrapping_add(15).wrapping_add(round))
+            && let Some(slot) = wires
+                .values
+                .get_mut(1usize.wrapping_add(15).wrapping_add(round))
         {
             *slot = value;
         }
     }
 
-    let mut tags = [F288::ZERO; SECRET_WIRES];
     for index in 0..SECRET_WIRES {
-        let u = u_values.get(index).copied().unwrap_or(F288::ZERO);
-        let q = q_values.get(index).copied().unwrap_or(F288::ZERO);
-        let w = wire_w.get(index).copied().unwrap_or(F288::ZERO);
+        let u = openings.u.get(index).copied().unwrap_or(F288::ZERO);
+        let q = openings.q.get(index).copied().unwrap_or(F288::ZERO);
+        let w = wires.values.get(index).copied().unwrap_or(F288::ZERO);
         let mut d = u.add_value(w);
         let tag = q.add_value(u.mul_value(delta));
-        if let Some(slot) = tags.get_mut(index) {
+        if let Some(slot) = wires.tags.get_mut(index) {
             *slot = tag;
         }
         copy_at(
@@ -297,7 +324,6 @@ fn fill_wires(
         );
         d.wipe();
     }
-    (wire_w, tags)
 }
 
 fn prove(
@@ -371,8 +397,8 @@ fn reconstruct_roots(
     salt: &[u8; SALT_LEN],
     pk_hash: &[u8; COMMITMENT_LEN],
     h2: &[u8; H2_LEN],
-) -> [u8; TREE_COUNT * COMMITMENT_LEN] {
-    let mut roots = [0u8; TREE_COUNT * COMMITMENT_LEN];
+    roots: &mut [u8; TREE_COUNT * COMMITMENT_LEN],
+) {
     for tree_index in 0..TREE_COUNT {
         let hidden = read::<COMMITMENT_LEN>(
             bytes,
@@ -401,9 +427,8 @@ fn reconstruct_roots(
             salt,
             pk_hash,
         );
-        copy_at(&mut roots, tree_index.wrapping_mul(COMMITMENT_LEN), &root);
+        copy_at(roots, tree_index.wrapping_mul(COMMITMENT_LEN), &root);
     }
-    roots
 }
 
 fn squeeze_challenges(transcript: &mut Transcript) -> (F288, F288, [u8; H2_LEN]) {
@@ -420,8 +445,7 @@ fn squeeze_challenges(transcript: &mut Transcript) -> (F288, F288, [u8; H2_LEN])
     )
 }
 
-fn opened_wires(bytes: &[u8; SIGNATURE_LEN], delta: F288) -> [F288; SECRET_WIRES] {
-    let mut q_open = [F288::ZERO; SECRET_WIRES];
+fn opened_wires(bytes: &[u8; SIGNATURE_LEN], delta: F288, q_open: &mut [F288; SECRET_WIRES]) {
     for index in 0..SECRET_WIRES {
         let commitment = read::<COMMITMENT_LEN>(
             bytes,
@@ -439,7 +463,6 @@ fn opened_wires(bytes: &[u8; SIGNATURE_LEN], delta: F288) -> [F288; SECRET_WIRES
             *slot = q.add_value(d.mul_value(delta));
         }
     }
-    q_open
 }
 
 fn check_proof(
@@ -535,6 +558,7 @@ fn tree_root_seed(master: &[u8; FIELD_BYTES], tree_index: u16) -> [u8; FIELD_BYT
     }
     let mut seed = [0u8; FIELD_BYTES];
     derive_key("VORB3-TREE-ROOT-V1", &data, &mut seed);
+    wipe_bytes(&mut data);
     seed
 }
 
@@ -551,7 +575,8 @@ fn field_from_commitment(commitment: &[u8; COMMITMENT_LEN]) -> F288 {
 
 #[inline]
 fn nonzero(value: F288) -> F288 {
-    if value.is_zero() { F288::ONE } else { value }
+    let zero = value.ct_is_zero();
+    F288::ct_select(zero, value, F288::ONE)
 }
 
 #[inline]
