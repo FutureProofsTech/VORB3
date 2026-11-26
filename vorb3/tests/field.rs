@@ -89,3 +89,27 @@ fn field_operator_sub_and_debug() {
     assert_eq!(a - b, a + b);
     assert_eq!(format!("{a:?}"), "F288(..)");
 }
+
+#[test]
+fn zero_test_checks_every_limb() {
+    // Single nonzero limbs catch each `&` mutation in the OR fold.
+    for limb in [0usize, 8, 16, 24, 32] {
+        let mut bytes = [0u8; 36];
+        if let Some(slot) = bytes.get_mut(limb) {
+            *slot = 1;
+        }
+        assert!(!F288::from_bytes(bytes).is_zero());
+    }
+    // A low limb plus each later limb catches XOR/AND mutations at each
+    // left-associative OR position.
+    for (left, right) in [(0usize, 8usize), (8, 16), (16, 24), (24, 32)] {
+        let mut bytes = [0u8; 36];
+        if let Some(slot) = bytes.get_mut(left) {
+            *slot = 1;
+        }
+        if let Some(slot) = bytes.get_mut(right) {
+            *slot = 1;
+        }
+        assert!(!F288::from_bytes(bytes).is_zero());
+    }
+}

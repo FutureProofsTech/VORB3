@@ -141,6 +141,13 @@ mod tests {
         assert_eq!(no.select_u8(0x12, 0x34), 0x12);
         assert_eq!(yes.select_u64(1, 2), 2);
         assert_eq!(no.select_u64(1, 2), 1);
+        // Exercise every byte lane, including the top byte of the 0xFF mask.
+        assert_eq!(yes.select_u64(0, u64::MAX), u64::MAX);
+        assert_eq!(no.select_u64(0, u64::MAX), 0);
+        assert_eq!(yes.select_u64(u64::MAX, 0), 0);
+        assert_eq!(no.select_u64(u64::MAX, 0), u64::MAX);
+        assert_eq!(yes.or(yes).mask(), 0xFF);
+        assert!(!yes.and(no).to_bool());
     }
 
     #[test]
@@ -149,7 +156,11 @@ mod tests {
         assert!(ct_eq_u64(u64::MAX, u64::MAX).to_bool());
         assert!(!ct_eq_u64(0, 1).to_bool());
         assert!(!ct_eq_u64(1, 0).to_bool());
+        assert!(!ct_eq_u64(1 << 63, 0).to_bool());
+        assert!(!ct_eq_u64(0, 1 << 63).to_bool());
+        assert!(!ct_eq_u64(u64::MAX, u64::MAX - 1).to_bool());
         assert!(ct_is_zero_u64(0).to_bool());
         assert!(!ct_is_zero_u64(1).to_bool());
+        assert!(!ct_is_zero_u64(1 << 63).to_bool());
     }
 }

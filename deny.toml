@@ -1,0 +1,12 @@
+# Local dependency/license gate. The project is GPL-3.0-or-later and has no
+# third-party runtime dependencies.
+[licenses]
+allow = ["GPL-3.0-or-later"]
+
+[bans]
+multiple-versions = "deny"
+wildcards = "allow"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

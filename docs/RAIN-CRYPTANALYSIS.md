@@ -160,6 +160,10 @@ No constant is zero, one, or a low-weight value in the tested set.
   samples.
 - Implementation: cipher KAT matches the independent Python model; selector
   gadget is complete and sound by the four equations.
+- Formal toy check: Z3 proves over GF(2^8) that the four selector equations
+  have only the zero case (`b=1,x=y=0`) or the inverse case
+  (`b=0,x!=0,y=x^-1`). Script: `scripts/z3_selector.py`; result: UNSAT for a
+  counterexample.
 
 No local break was found. The honest conclusion is **“no known local attack
 below the 128-bit target”**, not “proved 128-bit secure.”

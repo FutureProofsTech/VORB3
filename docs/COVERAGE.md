@@ -14,9 +14,9 @@ release stack claim is tested separately by `scripts/gate.sh`.
 
 | Scope | Functions | Lines | Regions |
 |---|---:|---:|---:|
-| `vorb3` default features (shipped library) | **100.00%** (167/167) | **99.89%** (1789/1791) | 98.71% |
-| `vorb3` all features (includes `bench-api`) | **100.00%** (193/193) | **99.90%** (2012/2014) | 98.79% |
-| Whole workspace including dev CLIs | 72.83% (193/265) | 75.61% (2012/2661) | 73.56% |
+| `vorb3` default features (shipped library) | **100.00%** (167/167) | **99.89%** (1799/1801) | 98.72% |
+| `vorb3` all features (includes `bench-api`) | **100.00%** (193/193) | **99.90%** (2022/2024) | 98.80% |
+| Whole workspace including dev CLIs | 72.83% (193/265) | 75.70% (2022/2671) | 73.73% |
 
 The workspace total is lower only because `tools/attack` and `tools/bench` are
 CLI harnesses with no unit tests. They are not shipped library code. Their

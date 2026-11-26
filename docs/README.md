@@ -22,6 +22,7 @@ a release certificate and no external audit is claimed.
 | `BENCHMARKS.md` | Full latency/throughput/memory/build benchmark report |
 | `OPTIMIZATIONS.md` | Field/BLAKE3/GGM optimization report and speedups |
 | `COVERAGE.md` | llvm-cov line/function/region coverage report |
+| `REDTEAM-CAMPAIGN.md` | Extended multi-tool red-team campaign |
 | `../model/vorb3_model.py` | Independent Python/py-blake3 model |
 | `../model/README.md` | Model usage and limitations |
 
