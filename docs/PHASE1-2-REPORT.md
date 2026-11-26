@@ -54,7 +54,7 @@ zero runtime dependencies                            PASS
 
 The shipped graph is only `vorb3 v0.1.0`; no third-party crates.
 
-## 3. Phase 2 field/CT foundation
+## 3. Phase 2 field/CT foundation (checkpoint)
 
 Implemented:
 
@@ -76,19 +76,32 @@ Implemented:
   - inversion
   - encoding round-trip
   - field laws
+- `kat/field_sp288_diff.bin` — 512 independent Python-model records
+  (`a`, `b`, `a*b`, `a^-1`), checked by `vorb3/tests/field_diff.rs`.
+- Itoh–Tsujii inversion: 16 chain multiplications plus fixed squarings.
+- `vorb3/src/zeroize.rs` — safe `fill(0)` + `black_box` wipes; `F288::wipe`.
 
-All tests pass.
+Verification run:
+
+```
+cargo test --workspace                       PASS (5 unit + 5 integration)
+cargo kani                                   PASS (4 harnesses)
+cargo +nightly miri test --lib ct::tests     PASS
+cargo +nightly miri test --test profile      PASS
+field differential: 512 Python vectors       PASS
+inverse self-consistency: 2,000 values       PASS
+```
 
 ## 4. What is not done yet
 
 Phase 2 still needs:
 
-- larger differential campaign vs the Python model (target 10^7+)
-- Itoh–Tsujii inversion optimisation (current exponentiation is correct but slow)
-- Kani panic/bounds proofs for field/CT
-- Miri run
-- zeroization module and canary tests
-- constant-time assembly audit
+- larger differential campaign vs the Python model (target 10^7+; current 512
+  locked vectors + 2,000 self-consistency)
+- Kani proof for full symbolic multiplication/reduction (currently encoding and
+  additive/CT properties are proved)
+- assembly-level constant-time audit of `mul_reduce`/inversion
+- canary/stack integration once secret-bearing wire types exist
 
 Phase 3 (BLAKE3/WH512), Phase 4 (Rain-SP1), Phase 5 (GGM/Merkle/transcript),
 and Phase 6 (QuickSilver/sign/verify) are not started.

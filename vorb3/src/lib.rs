@@ -34,6 +34,9 @@
 
 mod ct;
 pub mod field;
+#[cfg(kani)]
+mod kani_proofs;
+mod zeroize;
 
 /// Frozen specification identifier.
 pub const SPEC_VERSION: &str = "VORB3-SP1-FROZEN-288/35-2026-11-26";

@@ -76,4 +76,8 @@ fn field_laws_and_encoding() {
 
     assert_eq!(F288::from_bytes(a.to_bytes()), a);
     assert_eq!(F288::from_bytes(B).to_bytes(), B);
+
+    let mut wiped = F288::from_u64(0xDEAD_BEEF);
+    wiped.wipe();
+    assert!(wiped.is_zero());
 }

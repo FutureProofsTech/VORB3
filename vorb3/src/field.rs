@@ -120,6 +120,15 @@ impl F288 {
             .and(ct_is_zero_u64(a4 ^ b4))
     }
 
+    /// Wipes this field element in place.
+    ///
+    /// This is best-effort zeroization of the owned limbs; it uses the safe
+    /// `fill(0)` plus `black_box` barrier.
+    #[inline]
+    pub fn wipe(&mut self) {
+        crate::zeroize::wipe_u64s(&mut self.limbs);
+    }
+
     /// Constant-time zero test.
     #[must_use]
     #[inline]
@@ -137,22 +146,30 @@ impl F288 {
 
     /// Field inversion, with `0^-1 = 0`.
     ///
-    /// This uses fixed square-and-multiply exponentiation by `2^288 - 2`.
-    /// It is correct and constant-time with respect to the value; the
-    /// Itoh–Tsujii optimisation is a later phase.
+    /// Itoh–Tsujii addition chain for `2^288 - 2`: 16 chain multiplications and
+    /// fixed squarings, with no secret-dependent branches.
     #[must_use]
     #[inline]
     pub fn inverse(self) -> Self {
-        let mut result = Self::ONE;
-        let mut bit = FIELD_DEGREE;
-        while bit > 0 {
-            bit = bit.wrapping_sub(1);
-            result = result.square();
-            if bit != 0 {
-                result = result.mul_value(self);
+        let mut table = [(0u16, Self::ZERO); CHAIN.len() + 1];
+        if let Some(slot) = table.get_mut(0) {
+            *slot = (1, self);
+        }
+        for (index, &(target, left, right)) in CHAIN.iter().enumerate() {
+            let left_value = chain_lookup(&table, left);
+            let right_value = chain_lookup(&table, right);
+            let mut value = left_value;
+            let mut squarings = 0u16;
+            while squarings < right {
+                value = value.square();
+                squarings = squarings.wrapping_add(1);
+            }
+            value = value.mul_value(right_value);
+            if let Some(slot) = table.get_mut(index.wrapping_add(1)) {
+                *slot = (target, value);
             }
         }
-        result
+        chain_lookup(&table, 287).square()
     }
 }
 
@@ -176,6 +193,37 @@ impl F288 {
             limbs: mul_reduce(self.limbs, rhs.limbs),
         }
     }
+}
+
+/// Itoh–Tsujii addition chain for exponents `2^n - 1`, ending at 287.
+const CHAIN: [(u16, u16, u16); 16] = [
+    (2, 1, 1),
+    (3, 2, 1),
+    (6, 3, 3),
+    (7, 6, 1),
+    (14, 7, 7),
+    (15, 14, 1),
+    (30, 15, 15),
+    (31, 30, 1),
+    (62, 31, 31),
+    (63, 62, 1),
+    (126, 63, 63),
+    (127, 126, 1),
+    (254, 127, 127),
+    (255, 254, 1),
+    (286, 255, 31),
+    (287, 286, 1),
+];
+
+/// Look up a previously computed chain value by exponent.
+#[inline]
+fn chain_lookup(table: &[(u16, F288); CHAIN.len() + 1], exponent: u16) -> F288 {
+    for &(candidate, value) in table {
+        if candidate == exponent {
+            return value;
+        }
+    }
+    F288::ZERO
 }
 
 impl Add for F288 {

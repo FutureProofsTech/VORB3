@@ -15,6 +15,7 @@ categories = ["cryptography", "no-std"]
 [lints.rust]
 unsafe_code = "forbid"
 missing_docs = "deny"
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(kani)"] }
 
 [lints.clippy]
 all = "deny"
