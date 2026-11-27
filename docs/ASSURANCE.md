@@ -109,9 +109,33 @@ human-readable conclusion.
 | Rain-SP1 dossier | local analysis complete; no proof |
 | External audit | **none** |
 
+## 3.2 NIST-tier pack evidence
+
+| Check | Level 1+ (SP-160/32) | Level 3+ (SP-224/32) |
+|---|---|---|
+| Model KAT + 28-case differential | pass | pass |
+| Field differential (4,096 records) | pass | pass |
+| Polynomial irreducibility (SymPy) | pass | pass |
+| Structured envelope attacks | pass | pass |
+| Single-bit sweep | 63,808 rejected | 82,368 rejected |
+| Kani | 16/16 | 16/16 |
+| Miri selected primitives | field + keys pass | field + keys pass |
+| Dudect (50k) | sign t=-1.820, verify t=2.113 | sign t=0.026, verify t=0.012 |
+| ASan full graph | pass | pass |
+| Coverage | 100% funcs / 99.70% lines | 100% funcs / 99.70% lines |
+| 300 s libFuzzer | 7,260,135 execs, 0 crashes | 18,848,000 execs, 0 crashes |
+| 32 KiB release stack | pass | pass |
+| Reproducible rlib | `15a140a6…8cac36` | `e6dc131a…8f55f5` |
+| Cross-runtime | AArch64/s390x/i686/ppc64/Windows/WASI pass | AArch64/s390x/i686/ppc64/Windows/WASI pass |
+| Targeted mutation | 403: 316 caught, 24 missed, 53 unviable, 10 timeouts | 403: 316 caught, 24 missed, 53 unviable, 10 timeouts |
+
+The `+` labels are conservative margins over NIST Level 1 (64q/128c) and
+Level 3 (96q/192c); the parameter definitions are in `NIST-PACKS.md`.
+
 ## 4. What is not covered yet
 
-- A full symbolic Kani proof of the 288-bit, 15-round, 35-tree sign/verify.
+- A full symbolic Kani proof of sign/verify for any profile; the NIST packs
+  have helper-level Kani proofs only.
 - A formal multi-round linear/algebraic security proof for Rain-SP1.
 - 72-hour / 1-billion-execution fuzzing.
 - External review.

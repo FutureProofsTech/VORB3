@@ -9,5 +9,10 @@ license.workspace = true
 name = "vorb3_ctgrind"
 crate-type = ["staticlib"]
 
+[features]
+default = []
+nist1 = ["vorb3/nist1"]
+nist3 = ["vorb3/nist3"]
+
 [dependencies]
 vorb3 = { path = "../../vorb3" }

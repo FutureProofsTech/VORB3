@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![cfg(not(any(feature = "nist1", feature = "nist3")))]
 //! Rain-SP1 known-answer test against the independent Python model.
 #![allow(clippy::arithmetic_side_effects)] // field operators are total; no integer overflow.
 

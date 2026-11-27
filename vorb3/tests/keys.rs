@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![cfg(not(any(feature = "nist1", feature = "nist3")))]
 //! Key parsing/encoding and invalid-key coverage.
 
 use vorb3::keys::{Error, ExpandedSecretKey, PublicKey, SecretKey};

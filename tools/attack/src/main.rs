@@ -5,11 +5,34 @@ use std::time::Instant;
 
 use vorb3::keys::{ExpandedSecretKey, PublicKey, SecretKey};
 use vorb3::sign::{sign_into, verify_bytes};
+use vorb3::{FIELD_BYTES, SIGNATURE_LEN};
 
+#[cfg(not(any(feature = "nist1", feature = "nist3")))]
 const SEED: &[u8; 36] = include_bytes!("../../../kat/seed_sp288_35.bin");
+#[cfg(not(any(feature = "nist1", feature = "nist3")))]
 const EXPECTED_PK: &[u8; 72] = include_bytes!("../../../kat/pk_sp288_35.bin");
+#[cfg(not(any(feature = "nist1", feature = "nist3")))]
 const EXPECTED_SIG: &[u8; 13_672] = include_bytes!("../../../kat/sign_sp288_35.bin");
+#[cfg(not(any(feature = "nist1", feature = "nist3")))]
 const MESSAGE: &[u8] = b"VORB3 phase-0 SP288_35";
+
+#[cfg(feature = "nist1")]
+const SEED: &[u8; 20] = include_bytes!("../../../kat/seed_sp160_32.bin");
+#[cfg(feature = "nist1")]
+const EXPECTED_PK: &[u8; 40] = include_bytes!("../../../kat/pk_sp160_32.bin");
+#[cfg(feature = "nist1")]
+const EXPECTED_SIG: &[u8; 7_976] = include_bytes!("../../../kat/sign_sp160_32.bin");
+#[cfg(feature = "nist1")]
+const MESSAGE: &[u8] = b"VORB3 phase-0 SP160_32";
+
+#[cfg(feature = "nist3")]
+const SEED: &[u8; 28] = include_bytes!("../../../kat/seed_sp224_32.bin");
+#[cfg(feature = "nist3")]
+const EXPECTED_PK: &[u8; 56] = include_bytes!("../../../kat/pk_sp224_32.bin");
+#[cfg(feature = "nist3")]
+const EXPECTED_SIG: &[u8; 10_296] = include_bytes!("../../../kat/sign_sp224_32.bin");
+#[cfg(feature = "nist3")]
+const MESSAGE: &[u8] = b"VORB3 phase-0 SP224_32";
 
 fn public_key() -> PublicKey {
     match PublicKey::from_bytes(*EXPECTED_PK) {
@@ -62,7 +85,7 @@ fn bitflip() {
     println!("BITFLIP PASS: {count} single-bit mutations rejected");
 }
 
-fn key_from_seed(seed: [u8; 36]) -> ExpandedSecretKey {
+fn key_from_seed(seed: [u8; FIELD_BYTES]) -> ExpandedSecretKey {
     let compact = SecretKey::from_seed(seed);
     ExpandedSecretKey::from_seed(&compact)
 }
@@ -101,7 +124,7 @@ fn dudect(samples: usize) {
         *byte ^= 0x5A;
     }
     let other = key_from_seed(other_seed);
-    let mut signature = [0u8; 13_672];
+    let mut signature = [0u8; SIGNATURE_LEN];
     for _ in 0..8 {
         assert!(sign_into(MESSAGE, &fixed, &[0u8; 32], &mut signature).is_ok());
         assert!(sign_into(MESSAGE, &other, &[0u8; 32], &mut signature).is_ok());
@@ -132,7 +155,7 @@ fn dudect(samples: usize) {
 fn dudect_verify(samples: usize) {
     let public = public_key();
     let mut invalid = *EXPECTED_SIG;
-    if let Some(byte) = invalid.get_mut(13_671) {
+    if let Some(byte) = invalid.get_mut(EXPECTED_SIG.len() - 1) {
         *byte ^= 0x01;
     }
     for _ in 0..8 {
@@ -162,7 +185,7 @@ fn dudect_verify(samples: usize) {
     }
 }
 
-fn bench(seed: [u8; 36]) {
+fn bench(seed: [u8; FIELD_BYTES]) {
     let key = key_from_seed(seed);
     let public = match key.public_key() {
         Ok(public) => public,
@@ -171,9 +194,9 @@ fn bench(seed: [u8; 36]) {
             std::process::exit(2);
         }
     };
-    let mut storage = std::vec![0u8; 13_672];
+    let mut storage = std::vec![0u8; SIGNATURE_LEN];
     let slice: &mut [u8] = &mut storage;
-    let Ok(signature) = <&mut [u8; 13_672]>::try_from(slice) else {
+    let Ok(signature) = <&mut [u8; SIGNATURE_LEN]>::try_from(slice) else {
         return;
     };
     let start = Instant::now();
@@ -196,7 +219,8 @@ fn stress(iterations: usize) {
     for _ in 0..iterations {
         let mut mutated = *EXPECTED_SIG;
         state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
-        let index = usize::try_from(state % 13_672).unwrap_or(0);
+        let modulus = u64::try_from(SIGNATURE_LEN).unwrap_or(1);
+        let index = usize::try_from(state % modulus).unwrap_or(0);
         state = state.wrapping_mul(0xBF58_476D_1CE4_E5B9);
         if let Some(byte) = mutated.get_mut(index) {
             *byte ^= u8::try_from(state & 0xFF).unwrap_or(1) | 1;

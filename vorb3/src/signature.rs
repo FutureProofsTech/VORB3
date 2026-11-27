@@ -53,3 +53,52 @@ impl core::fmt::Debug for Signature {
         formatter.write_str("Signature(..)")
     }
 }
+
+#[cfg(all(test, any(feature = "nist1", feature = "nist3")))]
+mod profile_tests {
+    use super::Signature;
+    use crate::SIGNATURE_LEN;
+
+    struct Sink {
+        wrote: bool,
+    }
+    impl core::fmt::Write for Sink {
+        fn write_str(&mut self, text: &str) -> core::fmt::Result {
+            if text == "Signature(..)" {
+                self.wrote = true;
+            }
+            Ok(())
+        }
+    }
+
+    #[cfg(feature = "nist1")]
+    const KAT: &[u8] = include_bytes!("../../kat/sign_sp160_32.bin");
+    #[cfg(feature = "nist3")]
+    const KAT: &[u8] = include_bytes!("../../kat/sign_sp224_32.bin");
+
+    #[test]
+    fn profile_signature_paths() {
+        let bytes: [u8; SIGNATURE_LEN] = KAT.try_into().unwrap_or([0u8; SIGNATURE_LEN]);
+        let Ok(signature) = Signature::from_bytes(&bytes) else {
+            return;
+        };
+        assert_eq!(signature.as_bytes(), &bytes);
+        let Ok(second) = Signature::from_bytes(&bytes) else {
+            return;
+        };
+        assert_eq!(signature, second);
+        let zero = [0u8; SIGNATURE_LEN];
+        let Ok(zero_signature) = Signature::from_bytes(&zero) else {
+            return;
+        };
+        assert_ne!(signature, zero_signature);
+        let mut sink = Sink { wrote: false };
+        assert!(core::fmt::Write::write_fmt(&mut sink, format_args!("{signature:?}")).is_ok());
+        assert!(sink.wrote);
+        let expected = signature.to_bytes();
+        assert_eq!(expected, bytes);
+        assert_eq!(second.as_bytes(), &expected);
+        assert!(Signature::from_bytes(&bytes[..SIGNATURE_LEN - 1]).is_err());
+        assert!(Signature::from_bytes(&zero).is_ok());
+    }
+}

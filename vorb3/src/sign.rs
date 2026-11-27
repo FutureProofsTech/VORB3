@@ -8,16 +8,19 @@ use crate::rain::{self, RainConstants, RainWitness};
 use crate::signature::Signature;
 use crate::transcript::Transcript;
 use crate::zeroize::wipe_bytes;
-use crate::{COMMITMENT_LEN, FIELD_BYTES, H2_LEN, SALT_LEN, SIGNATURE_LEN, TREE_COUNT, TREE_DEPTH};
+use crate::{
+    COMMITMENT_LEN, COPATH_LEN, FIELD_BYTES, H2_LEN, PUBLIC_KEY_LEN, ROUNDS, SALT_LEN,
+    SIGNATURE_LEN, TREE_COUNT, TREE_DEPTH, WIRE_D_LEN,
+};
 
 const SALT_OFF: usize = 0;
-const H2_OFF: usize = 64;
-const WIRE_D_OFF: usize = 128;
-const U_OFF: usize = 1_244;
-const V_OFF: usize = 1_280;
-const OUT_TAG_OFF: usize = 1_316;
-const COPATH_OFF: usize = 1_352;
-const HIDDEN_OFF: usize = 11_432;
+const H2_OFF: usize = SALT_LEN;
+const WIRE_D_OFF: usize = SALT_LEN + H2_LEN;
+const U_OFF: usize = WIRE_D_OFF + WIRE_D_LEN;
+const V_OFF: usize = U_OFF + FIELD_BYTES;
+const OUT_TAG_OFF: usize = V_OFF + FIELD_BYTES;
+const COPATH_OFF: usize = OUT_TAG_OFF + FIELD_BYTES;
+const HIDDEN_OFF: usize = COPATH_OFF + COPATH_LEN;
 const SECRET_WIRES: usize = 31;
 const MASK_TREE: usize = 31;
 
@@ -180,9 +183,9 @@ pub fn verify_bytes(
 
 #[inline]
 fn public_key_from_parts(pt: F288, ct: F288) -> Result<PublicKey, Error> {
-    let mut bytes = [0u8; 72];
+    let mut bytes = [0u8; PUBLIC_KEY_LEN];
     write_field(&mut bytes, 0, pt);
-    write_field(&mut bytes, 36, ct);
+    write_field(&mut bytes, FIELD_BYTES, ct);
     PublicKey::from_bytes(bytes)
 }
 
@@ -259,7 +262,7 @@ fn fill_openings(
         wipe_bytes(&mut root_seed);
         for level in 0..TREE_DEPTH {
             let offset = COPATH_OFF
-                .wrapping_add(index.wrapping_mul(288))
+                .wrapping_add(index.wrapping_mul(TREE_DEPTH * FIELD_BYTES))
                 .wrapping_add(level.wrapping_mul(FIELD_BYTES));
             if let Some(seed) = copath.get(level) {
                 copy_at(signature, offset, seed);
@@ -290,7 +293,7 @@ fn fill_wires(
     if let Some(slot) = wires.values.get_mut(0) {
         *slot = sk;
     }
-    for round in 0..15 {
+    for round in 0..ROUNDS {
         if let Some(value) = witness.y.get(round).copied()
             && let Some(slot) = wires.values.get_mut(1usize.wrapping_add(round))
         {
@@ -299,7 +302,7 @@ fn fill_wires(
         if let Some(value) = witness.b.get(round).copied()
             && let Some(slot) = wires
                 .values
-                .get_mut(1usize.wrapping_add(15).wrapping_add(round))
+                .get_mut(1usize.wrapping_add(ROUNDS).wrapping_add(round))
         {
             *slot = value;
         }
@@ -338,17 +341,17 @@ fn prove(
     let mut last_diffusion = F288::ZERO;
     let mut last_v_y = F288::ZERO;
 
-    for round in 0..15 {
+    for round in 0..ROUNDS {
         let v_y = tags
             .get(1usize.wrapping_add(round))
             .copied()
             .unwrap_or(F288::ZERO);
         let v_b = tags
-            .get(1usize.wrapping_add(15).wrapping_add(round))
+            .get(1usize.wrapping_add(ROUNDS).wrapping_add(round))
             .copied()
             .unwrap_or(F288::ZERO);
         let w_b = wire_w
-            .get(1usize.wrapping_add(15).wrapping_add(round))
+            .get(1usize.wrapping_add(ROUNDS).wrapping_add(round))
             .copied()
             .unwrap_or(F288::ZERO);
         let w_x = witness.x.get(round).copied().unwrap_or(F288::ZERO);
@@ -407,7 +410,7 @@ fn reconstruct_roots(
             let seed = read::<FIELD_BYTES>(
                 bytes,
                 COPATH_OFF
-                    .wrapping_add(tree_index.wrapping_mul(288))
+                    .wrapping_add(tree_index.wrapping_mul(TREE_DEPTH * FIELD_BYTES))
                     .wrapping_add(level.wrapping_mul(FIELD_BYTES)),
             )
             .unwrap_or([0u8; FIELD_BYTES]);
@@ -489,13 +492,13 @@ fn check_proof(
     let mut power = F288::ONE;
     let mut last_diffusion = F288::ZERO;
     let mut last_q_y = F288::ZERO;
-    for round in 0..15 {
+    for round in 0..ROUNDS {
         let q_y = q_open
             .get(1usize.wrapping_add(round))
             .copied()
             .unwrap_or(F288::ZERO);
         let q_b = q_open
-            .get(1usize.wrapping_add(15).wrapping_add(round))
+            .get(1usize.wrapping_add(ROUNDS).wrapping_add(round))
             .copied()
             .unwrap_or(F288::ZERO);
         let diffusion = constants
@@ -590,7 +593,7 @@ fn read<const N: usize>(bytes: &[u8], offset: usize) -> Option<[u8; N]> {
 }
 
 #[inline]
-fn write_field(bytes: &mut [u8; 72], offset: usize, value: F288) {
+fn write_field(bytes: &mut [u8; PUBLIC_KEY_LEN], offset: usize, value: F288) {
     let Some(end) = offset.checked_add(FIELD_BYTES) else {
         return;
     };
@@ -599,7 +602,7 @@ fn write_field(bytes: &mut [u8; 72], offset: usize, value: F288) {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(any(feature = "nist1", feature = "nist3"))))]
 mod tests {
     use super::{copy_at, read, write_field};
     use crate::field::F288;
@@ -726,5 +729,25 @@ pub(crate) mod bench {
         let mut roots = [0u8; TREE_COUNT * COMMITMENT_LEN];
         reconstruct_roots(bytes, salt, pk_hash, h2, &mut roots);
         roots
+    }
+}
+
+#[cfg(all(test, any(feature = "nist1", feature = "nist3")))]
+mod profile_tests {
+    use super::{copy_at, read, write_field};
+    use crate::PUBLIC_KEY_LEN;
+    use crate::field::F288;
+
+    #[test]
+    fn profile_bounds_helpers_fail_closed() {
+        let mut buffer = [0u8; 4];
+        copy_at(&mut buffer, usize::MAX, &[1]);
+        copy_at(&mut buffer, 3, &[1, 2]);
+        assert!(read::<4>(&[0u8; 4], usize::MAX).is_none());
+        assert!(read::<4>(&[0u8; 4], 3).is_none());
+        let mut field_bytes = [0u8; PUBLIC_KEY_LEN];
+        write_field(&mut field_bytes, usize::MAX, F288::ONE);
+        write_field(&mut field_bytes, PUBLIC_KEY_LEN, F288::ONE);
+        write_field(&mut field_bytes, 0, F288::ONE);
     }
 }

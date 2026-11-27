@@ -4,7 +4,8 @@
 (2026-11-27). **Not a proof of computational security and not an external
 audit.**
 **Scope:** SP-128/SP-128+/SP-160 parameter families; the equations are shared.
-The implementation target is the frozen SP-288/35 profile.
+The baseline implementation target is the frozen SP-288/35 profile; the
+SP-160/32 and SP-224/32 NIST-tier packs share the same equations.
 
 ---
 
@@ -39,6 +40,8 @@ bad challenge is the square root of that fraction.
 | SP-128 (256) | 2^256 | 32 / 256 | ≈2^-249.1 | ≈125 | 128 | 128 | **≈125** | 11,456 |
 | SP-288/33 | 2^288 | 33 / 264 | ≈2^-281.1 | ≈140.5 | 132 | 144 | **≈132** | 12,968 |
 | SP-288/35 | 2^288 | 35 / 280 | ≈2^-281.1 | ≈140.5 | 140 | 144 | **≈140** | 13,672 |
+| SP-160/32 | 2^160 | 32 / 256 | ≈2^-153.1 | ≈76.5 | 128 | 80 | **≈76.5** | 7,976 |
+| SP-224/32 | 2^224 | 32 / 256 | ≈2^-217.1 | ≈108.5 | 128 | 112 | **≈108.5** | 10,296 |
 | SP-288/36 | 2^288 | 36 / 288 | ≈2^-281.1 | ≈140.5 | 144 | 144 | **≈140.5** | 14,024 |
 | SP-320/36 | 2^320 | 36 / 288 | ≈2^-313.1 | ≈156.5 | 144 | 160 | **≈144** | 15,312 |
 | SP-320/40 | 2^320 | 40 / 320 | ≈2^-313.1 | ≈156.5 | 160 | 160 | **≈156.5** | 16,848 |

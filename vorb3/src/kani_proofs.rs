@@ -3,23 +3,23 @@
 //! These are compiled only under `cfg(kani)`. They prove bounded functional
 //! properties; they are not a cryptographic security proof.
 
-use crate::SIGNATURE_LEN;
 use crate::ct::{CtChoice, ct_eq_u64, ct_is_zero_u64};
 use crate::field::F288;
 use crate::keys::{ExpandedSecretKey, PublicKey, SecretKey};
 use crate::sign::{sign_into, verify_bytes};
 use crate::signature::Signature;
+use crate::{FIELD_BYTES, PUBLIC_KEY_LEN, SIGNATURE_LEN};
 
 #[kani::proof]
 fn field_encoding_roundtrip() {
-    let bytes: [u8; 36] = kani::any();
+    let bytes: [u8; FIELD_BYTES] = kani::any();
     let value = F288::from_bytes(bytes);
     assert_eq!(value.to_bytes(), bytes);
 }
 
 #[kani::proof]
 fn field_additive_identities() {
-    let bytes: [u8; 36] = kani::any();
+    let bytes: [u8; FIELD_BYTES] = kani::any();
     let value = F288::from_bytes(bytes);
     assert_eq!(value + F288::ZERO, value);
     assert_eq!(value + value, F288::ZERO);
@@ -52,7 +52,7 @@ fn constant_time_zero_u64_matches_bool() {
 #[kani::proof]
 #[kani::unwind(40)]
 fn field_zero_test_matches_all_bytes() {
-    let bytes: [u8; 36] = kani::any();
+    let bytes: [u8; FIELD_BYTES] = kani::any();
     let value = F288::from_bytes(bytes);
     let mut any = 0u8;
     let mut index = 0usize;
@@ -66,8 +66,8 @@ fn field_zero_test_matches_all_bytes() {
 #[kani::proof]
 fn field_select_matches_branch() {
     let flag: bool = kani::any();
-    let if_false: [u8; 36] = kani::any();
-    let if_true: [u8; 36] = kani::any();
+    let if_false: [u8; FIELD_BYTES] = kani::any();
+    let if_true: [u8; FIELD_BYTES] = kani::any();
     let selected = F288::ct_select(
         CtChoice::from_bool(flag),
         F288::from_bytes(if_false),
@@ -90,7 +90,7 @@ fn bit_select_matches_branch() {
 
 #[kani::proof]
 fn field_multiplicative_identities() {
-    let bytes: [u8; 36] = kani::any();
+    let bytes: [u8; FIELD_BYTES] = kani::any();
     let value = F288::from_bytes(bytes);
     assert_eq!(value * F288::ONE, value);
     assert_eq!(value * F288::ZERO, F288::ZERO);
@@ -98,7 +98,7 @@ fn field_multiplicative_identities() {
 
 #[kani::proof]
 fn public_key_parse_roundtrip() {
-    let bytes: [u8; 72] = kani::any();
+    let bytes: [u8; PUBLIC_KEY_LEN] = kani::any();
     if let Ok(public) = PublicKey::from_bytes(bytes) {
         assert_eq!(public.to_bytes(), bytes);
     }
@@ -106,11 +106,11 @@ fn public_key_parse_roundtrip() {
 
 #[kani::proof]
 fn public_key_rejects_zero_component() {
-    let pt: [u8; 36] = kani::any();
-    let ct: [u8; 36] = kani::any();
-    let mut bytes = [0u8; 72];
-    bytes[..36].copy_from_slice(&pt);
-    bytes[36..].copy_from_slice(&ct);
+    let pt: [u8; FIELD_BYTES] = kani::any();
+    let ct: [u8; FIELD_BYTES] = kani::any();
+    let mut bytes = [0u8; PUBLIC_KEY_LEN];
+    bytes[..FIELD_BYTES].copy_from_slice(&pt);
+    bytes[FIELD_BYTES..].copy_from_slice(&ct);
     let expected = F288::from_bytes(pt).is_zero() || F288::from_bytes(ct).is_zero();
     assert_eq!(PublicKey::from_bytes(bytes).is_err(), expected);
 }

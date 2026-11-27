@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![cfg(not(any(feature = "nist1", feature = "nist3")))]
 //! Frozen-profile constants smoke test.
 
 use vorb3::{

@@ -23,10 +23,10 @@ use crate::ROUNDS;
 use crate::blake3;
 use crate::field::F288;
 
+#[cfg(not(any(feature = "nist1", feature = "nist3")))]
 const SEED: &[u8] = b"VORB3-RAIN288-SP-CONSTANTS-V1";
 
-// Per-round KDF contexts. They are literal so the no-allocation core never
-// formats a context at runtime.
+#[cfg(not(any(feature = "nist1", feature = "nist3")))]
 const ROUND_CONTEXTS: [&str; ROUNDS] = [
     "VORB3-RAIN288-SP-K0-V1",
     "VORB3-RAIN288-SP-K1-V1",
@@ -45,6 +45,7 @@ const ROUND_CONTEXTS: [&str; ROUNDS] = [
     "VORB3-RAIN288-SP-K14-V1",
 ];
 
+#[cfg(not(any(feature = "nist1", feature = "nist3")))]
 const DIFFUSION_CONTEXTS: [&str; ROUNDS] = [
     "VORB3-RAIN288-SP-C0-V1",
     "VORB3-RAIN288-SP-C1-V1",
@@ -62,7 +63,86 @@ const DIFFUSION_CONTEXTS: [&str; ROUNDS] = [
     "VORB3-RAIN288-SP-C13-V1",
     "VORB3-RAIN288-SP-C14-V1",
 ];
+#[cfg(feature = "nist1")]
+const SEED: &[u8] = b"VORB3-RAIN160-SP-CONSTANTS-V1";
 
+#[cfg(feature = "nist1")]
+const ROUND_CONTEXTS: [&str; ROUNDS] = [
+    "VORB3-RAIN160-SP-K0-V1",
+    "VORB3-RAIN160-SP-K1-V1",
+    "VORB3-RAIN160-SP-K2-V1",
+    "VORB3-RAIN160-SP-K3-V1",
+    "VORB3-RAIN160-SP-K4-V1",
+    "VORB3-RAIN160-SP-K5-V1",
+    "VORB3-RAIN160-SP-K6-V1",
+    "VORB3-RAIN160-SP-K7-V1",
+    "VORB3-RAIN160-SP-K8-V1",
+    "VORB3-RAIN160-SP-K9-V1",
+    "VORB3-RAIN160-SP-K10-V1",
+    "VORB3-RAIN160-SP-K11-V1",
+    "VORB3-RAIN160-SP-K12-V1",
+    "VORB3-RAIN160-SP-K13-V1",
+    "VORB3-RAIN160-SP-K14-V1",
+];
+
+#[cfg(feature = "nist1")]
+const DIFFUSION_CONTEXTS: [&str; ROUNDS] = [
+    "VORB3-RAIN160-SP-C0-V1",
+    "VORB3-RAIN160-SP-C1-V1",
+    "VORB3-RAIN160-SP-C2-V1",
+    "VORB3-RAIN160-SP-C3-V1",
+    "VORB3-RAIN160-SP-C4-V1",
+    "VORB3-RAIN160-SP-C5-V1",
+    "VORB3-RAIN160-SP-C6-V1",
+    "VORB3-RAIN160-SP-C7-V1",
+    "VORB3-RAIN160-SP-C8-V1",
+    "VORB3-RAIN160-SP-C9-V1",
+    "VORB3-RAIN160-SP-C10-V1",
+    "VORB3-RAIN160-SP-C11-V1",
+    "VORB3-RAIN160-SP-C12-V1",
+    "VORB3-RAIN160-SP-C13-V1",
+    "VORB3-RAIN160-SP-C14-V1",
+];
+#[cfg(feature = "nist3")]
+const SEED: &[u8] = b"VORB3-RAIN224-SP-CONSTANTS-V1";
+
+#[cfg(feature = "nist3")]
+const ROUND_CONTEXTS: [&str; ROUNDS] = [
+    "VORB3-RAIN224-SP-K0-V1",
+    "VORB3-RAIN224-SP-K1-V1",
+    "VORB3-RAIN224-SP-K2-V1",
+    "VORB3-RAIN224-SP-K3-V1",
+    "VORB3-RAIN224-SP-K4-V1",
+    "VORB3-RAIN224-SP-K5-V1",
+    "VORB3-RAIN224-SP-K6-V1",
+    "VORB3-RAIN224-SP-K7-V1",
+    "VORB3-RAIN224-SP-K8-V1",
+    "VORB3-RAIN224-SP-K9-V1",
+    "VORB3-RAIN224-SP-K10-V1",
+    "VORB3-RAIN224-SP-K11-V1",
+    "VORB3-RAIN224-SP-K12-V1",
+    "VORB3-RAIN224-SP-K13-V1",
+    "VORB3-RAIN224-SP-K14-V1",
+];
+
+#[cfg(feature = "nist3")]
+const DIFFUSION_CONTEXTS: [&str; ROUNDS] = [
+    "VORB3-RAIN224-SP-C0-V1",
+    "VORB3-RAIN224-SP-C1-V1",
+    "VORB3-RAIN224-SP-C2-V1",
+    "VORB3-RAIN224-SP-C3-V1",
+    "VORB3-RAIN224-SP-C4-V1",
+    "VORB3-RAIN224-SP-C5-V1",
+    "VORB3-RAIN224-SP-C6-V1",
+    "VORB3-RAIN224-SP-C7-V1",
+    "VORB3-RAIN224-SP-C8-V1",
+    "VORB3-RAIN224-SP-C9-V1",
+    "VORB3-RAIN224-SP-C10-V1",
+    "VORB3-RAIN224-SP-C11-V1",
+    "VORB3-RAIN224-SP-C12-V1",
+    "VORB3-RAIN224-SP-C13-V1",
+    "VORB3-RAIN224-SP-C14-V1",
+];
 /// Public Rain-SP1 round constants and diffusion constants.
 pub struct RainConstants {
     pub(crate) diffusion: [F288; ROUNDS],
@@ -76,7 +156,7 @@ impl RainConstants {
     pub fn derive() -> Self {
         let mut diffusion = [F288::ZERO; ROUNDS];
         let mut round = [F288::ZERO; ROUNDS];
-        let mut bytes = [0u8; 36];
+        let mut bytes = [0u8; crate::FIELD_BYTES];
         for (index, context) in DIFFUSION_CONTEXTS.iter().enumerate() {
             blake3::derive_key(context, SEED, &mut bytes);
             if let Some(slot) = diffusion.get_mut(index) {

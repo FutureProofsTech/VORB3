@@ -87,6 +87,8 @@ as historical input. It is not the target.
 | SP-288/36 | 2^288 (0xC03) | 36 | 288 | 36 B | 36 B | 14,024 B | ~140.5 |
 | SP-320/36 | 2^320 (0x1B) | 36 | 288 | 40 B | 40 B | 15,312 B | ~144 |
 | SP-320/40 (max margin) | 2^320 (0x1B) | 40 | 320 | 40 B | 40 B | 16,848 B | ~156.5 |
+| SP-160/32 (NIST L1+) | 2^160 (0x2D) | 32 | 256 | 20 B | 20 B | 7,976 B | ~76.5 |
+| SP-224/32 (NIST L3+) | 2^224 (0x309) | 32 | 256 | 28 B | 28 B | 10,296 B | ~108.5 |
 
 Public key = 2×field bytes; compact seed = field bytes; expanded secret =
 3×field bytes. GGM seed/leaf share = field bytes; Merkle hash = 64 B; salt/h2 =

@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![cfg(not(any(feature = "nist1", feature = "nist3")))]
 //! End-to-end SP-288/35 signature KAT against the independent Python model.
 use vorb3::keys::{ExpandedSecretKey, SecretKey};
 use vorb3::sign::{sign, verify};

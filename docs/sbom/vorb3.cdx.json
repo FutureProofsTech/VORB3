@@ -2,9 +2,9 @@
   "bomFormat": "CycloneDX",
   "specVersion": "1.3",
   "version": 1,
-  "serialNumber": "urn:uuid:bfda777f-89a1-4727-9b48-a6fbd2f0c1fd",
+  "serialNumber": "urn:uuid:d615126c-cff0-4661-b6b6-e2b54057a1de",
   "metadata": {
-    "timestamp": "2026-11-26T23:44:42.542112863Z",
+    "timestamp": "2026-11-27T13:03:53.894793723Z",
     "tools": [
       {
         "vendor": "CycloneDX",
@@ -14,29 +14,29 @@
     ],
     "component": {
       "type": "library",
-      "bom-ref": "path+file:///vorb3/vorb3#0.1.0",
+      "bom-ref": "path+file:///vorb3/vorb3#1.1.0",
       "name": "vorb3",
-      "version": "0.1.0",
-      "description": "VORB3-SP1 post-quantum signature library (SP-288/35)",
+      "version": "1.1.0",
+      "description": "VORB3-SP1 post-quantum signature library (SP-288/35; NIST L1+/L3+ profiles)",
       "scope": "required",
       "licenses": [
         {
           "expression": "GPL-3.0-or-later"
         }
       ],
-      "purl": "pkg:cargo/vorb3@0.1.0?download_url=file://.",
+      "purl": "pkg:cargo/vorb3@1.1.0?download_url=file://.",
       "components": [
         {
           "type": "library",
-          "bom-ref": "path+file:///vorb3/vorb3#0.1.0 bin-target-0",
+          "bom-ref": "path+file:///vorb3/vorb3#1.1.0 bin-target-0",
           "name": "vorb3",
-          "version": "0.1.0",
+          "version": "1.1.0",
           "licenses": [
             {
               "expression": "GPL-3.0-or-later"
             }
           ],
-          "purl": "pkg:cargo/vorb3@0.1.0?download_url=file://.#src/lib.rs"
+          "purl": "pkg:cargo/vorb3@1.1.0?download_url=file://.#src/lib.rs"
         }
       ]
     },
@@ -50,7 +50,7 @@
   "components": [],
   "dependencies": [
     {
-      "ref": "path+file:///vorb3/vorb3#0.1.0"
+      "ref": "path+file:///vorb3/vorb3#1.1.0"
     }
   ]
 }

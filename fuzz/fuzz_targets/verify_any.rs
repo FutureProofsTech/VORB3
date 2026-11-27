@@ -3,9 +3,7 @@
 use libfuzzer_sys::fuzz_target;
 use vorb3::keys::PublicKey;
 use vorb3::sign::verify_bytes;
-use vorb3::SIGNATURE_LEN;
-
-const PUBLIC_KEY_LEN: usize = 72;
+use vorb3::{PUBLIC_KEY_LEN, SIGNATURE_LEN};
 
 fuzz_target!(|data: &[u8]| {
     let mut pk_bytes = [0u8; PUBLIC_KEY_LEN];

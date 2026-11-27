@@ -8,7 +8,7 @@ printf '== gates ==\n'
 ./scripts/gate-deep.sh
 
 printf '== nextest ==\n'
-cargo nextest run --workspace --all-features --offline
+cargo nextest run --workspace --features bench-api --offline
 
 printf '== dependency/license scans ==\n'
 cargo audit --no-fetch

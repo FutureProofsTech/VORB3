@@ -10,17 +10,27 @@ command -v wasmtime >/dev/null || {
   exit 1
 }
 export CARGO_TARGET_WASM32_WASIP1_RUNNER='wasmtime run --dir .'
+feature_args=(--features bench-api)
+if [ -n "${VORB3_FEATURES:-}" ]; then
+  feature_args=(--features "$VORB3_FEATURES,bench-api")
+fi
 
-cargo test -p vorb3 --target wasm32-wasip1 --release --all-features --lib --offline
+cargo test -p vorb3 --target wasm32-wasip1 --release "${feature_args[@]}" --lib --offline
 for test in attack bench_api blake3 field_diff field keys model_diff profile rain \
-  redteam sign signature; do
-  cargo test -p vorb3 --target wasm32-wasip1 --release --all-features \
+  redteam sign signature nist_profile; do
+  cargo test -p vorb3 --target wasm32-wasip1 --release "${feature_args[@]}" \
     --test "$test" --offline
 done
 printf '== WASI 32 KiB wasm stack: sign+verify KAT ==\n'
-CARGO_TARGET_WASM32_WASIP1_RUNNER='wasmtime run --dir . -W max-wasm-stack=32768' \
-  cargo test -p vorb3 --target wasm32-wasip1 --release --all-features \
-  --test sign --offline
+if [ -n "${VORB3_FEATURES:-}" ]; then
+  CARGO_TARGET_WASM32_WASIP1_RUNNER='wasmtime run --dir . -W max-wasm-stack=32768' \
+    cargo test -p vorb3 --target wasm32-wasip1 --release "${feature_args[@]}" \
+    --test nist_profile profile_constants_and_kat --offline
+else
+  CARGO_TARGET_WASM32_WASIP1_RUNNER='wasmtime run --dir . -W max-wasm-stack=32768' \
+    cargo test -p vorb3 --target wasm32-wasip1 --release \
+    --test sign --offline
+fi
 
 printf 'WASM-RUNTIME PASS (thread-stack test not applicable on WASI preview1;\n'
 printf 'single-thread sign+verify passes with a 32 KiB wasm stack)\n'

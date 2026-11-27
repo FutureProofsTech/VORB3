@@ -17,13 +17,14 @@ pub fn wipe_bytes(bytes: &mut [u8]) {
 }
 
 /// Wipes a five-limb GF(2^288) value in place.
+#[cfg(not(any(feature = "nist1", feature = "nist3")))]
 #[inline]
 pub fn wipe_u64s(limbs: &mut [u64; 5]) {
     limbs.fill(0);
     black_box(limbs);
 }
 
-#[cfg(kani)]
+#[cfg(all(kani, not(any(feature = "nist1", feature = "nist3"))))]
 mod kani_proofs {
     use super::{wipe_bytes, wipe_u64s};
 
@@ -46,7 +47,7 @@ mod kani_proofs {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(any(feature = "nist1", feature = "nist3"))))]
 mod tests {
     use super::{wipe_bytes, wipe_u64s};
 

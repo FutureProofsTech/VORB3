@@ -16,10 +16,32 @@ use vorb3::sign::{sign, sign_into, verify, verify_bytes};
 use vorb3::signature::Signature;
 use vorb3::{FIELD_BYTES, SIGNATURE_LEN};
 
+#[cfg(not(any(feature = "nist1", feature = "nist3")))]
 const SEED: &[u8; 36] = include_bytes!("../../../kat/seed_sp288_35.bin");
+#[cfg(not(any(feature = "nist1", feature = "nist3")))]
 const EXPECTED_PK: &[u8; 72] = include_bytes!("../../../kat/pk_sp288_35.bin");
+#[cfg(not(any(feature = "nist1", feature = "nist3")))]
 const EXPECTED_SIG: &[u8; 13_672] = include_bytes!("../../../kat/sign_sp288_35.bin");
+#[cfg(not(any(feature = "nist1", feature = "nist3")))]
 const MESSAGE: &[u8] = b"VORB3 phase-0 SP288_35";
+
+#[cfg(feature = "nist1")]
+const SEED: &[u8; 20] = include_bytes!("../../../kat/seed_sp160_32.bin");
+#[cfg(feature = "nist1")]
+const EXPECTED_PK: &[u8; 40] = include_bytes!("../../../kat/pk_sp160_32.bin");
+#[cfg(feature = "nist1")]
+const EXPECTED_SIG: &[u8; 7_976] = include_bytes!("../../../kat/sign_sp160_32.bin");
+#[cfg(feature = "nist1")]
+const MESSAGE: &[u8] = b"VORB3 phase-0 SP160_32";
+
+#[cfg(feature = "nist3")]
+const SEED: &[u8; 28] = include_bytes!("../../../kat/seed_sp224_32.bin");
+#[cfg(feature = "nist3")]
+const EXPECTED_PK: &[u8; 56] = include_bytes!("../../../kat/pk_sp224_32.bin");
+#[cfg(feature = "nist3")]
+const EXPECTED_SIG: &[u8; 10_296] = include_bytes!("../../../kat/sign_sp224_32.bin");
+#[cfg(feature = "nist3")]
+const MESSAGE: &[u8] = b"VORB3 phase-0 SP224_32";
 const ENTROPY: [u8; 32] = [0u8; 32];
 
 #[derive(Clone)]
@@ -318,7 +340,7 @@ fn setup_and_run(runner: &mut Runner<'_>) {
 
     // BLAKE3 / WH512.
     let empty: &[u8] = b"";
-    let data36 = [0x42u8; 36];
+    let field_data = [0x42u8; FIELD_BYTES];
     let data64 = [0x42u8; 64];
     let data1k = vec![0x42u8; 1024];
     let data1m = vec![0x42u8; 1024 * 1024];
@@ -334,12 +356,14 @@ fn setup_and_run(runner: &mut Runner<'_>) {
     runner.run("hash", "keyed_hash.64B", || {
         blake3::keyed_hash(black_box([0x24u8; 32]), black_box(&data64))
     });
-    runner.run("hash", "derive_key.36B", || {
-        let mut out = [0u8; 36];
-        blake3::derive_key("VORB3-BENCH-V1", black_box(&data36), &mut out);
+    runner.run("hash", "derive_key.profile_field", || {
+        let mut out = [0u8; FIELD_BYTES];
+        blake3::derive_key("VORB3-BENCH-V1", black_box(&field_data), &mut out);
         out
     });
-    runner.run("hash", "wh512.36B", || blake3::wh512(black_box(&data36)));
+    runner.run("hash", "wh512.profile_field", || {
+        blake3::wh512(black_box(&field_data))
+    });
     runner.run("hash", "wh512.2240B", || blake3::wh512(black_box(&roots)));
 
     // Rain-SP1.
@@ -410,10 +434,10 @@ fn setup_and_run(runner: &mut Runner<'_>) {
         let expanded = ExpandedSecretKey::from_seed(&compact);
         expanded.public_key()
     });
-    runner.run("parse", "public_key.72B", || {
+    runner.run("parse", "public_key.profile", || {
         PublicKey::from_bytes(black_box(*EXPECTED_PK))
     });
-    runner.run("parse", "signature.13672B", || {
+    runner.run("parse", "signature.profile", || {
         Signature::from_bytes(black_box(EXPECTED_SIG))
     });
 

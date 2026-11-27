@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![cfg(not(any(feature = "nist1", feature = "nist3")))]
 //! Stack-bound smoke tests for the sign and verify paths separately.
 //!
 //! The release internal-working-set target is 32 KiB; debug builds use 64 KiB

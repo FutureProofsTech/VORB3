@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![cfg(not(any(feature = "nist1", feature = "nist3")))]
 //! Multi-case differential test against the independent Python model.
 //!
 //! The KAT file contains 28 records with different seeds, entropy, and message

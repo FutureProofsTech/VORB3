@@ -95,7 +95,8 @@ sign. No safety, panic, cast, dependency, or `unsafe` lint is weakened.
 - 512 independent field differential vectors pass.
 - 2,000-value inverse self-consistency pass.
 - WH512 prefix/full-hash equality test passes for split points 0..400.
-- All unit/integration tests pass under default and `--all-features`.
+- All unit/integration tests pass under default and each profile feature set
+  (`nist1,bench-api`, `nist3,bench-api`); `nist1` and `nist3` are mutually exclusive.
 - 32 KiB release stack test still passes for sign and verify.
 
 ## 4. Constant-time review

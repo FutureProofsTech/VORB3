@@ -56,18 +56,30 @@ ensure_loader "$AARCH64_SYSROOT" ld-linux-aarch64.so.1
 ensure_loader "$S390X_SYSROOT" ld64.so.1
 
 run_full() {
-  local target=$1 linker=$2 runner=$3 upper envs
+  local target=$1 linker=$2 runner=$3 upper envs feature_args=()
   upper=$(printf '%s' "$target" | tr 'a-z-' 'A-Z_')
   envs=("CARGO_TARGET_${upper}_LINKER=$linker")
   if [ -n "$runner" ]; then
     envs+=("CARGO_TARGET_${upper}_RUNNER=$runner")
   fi
+  if [ -n "${VORB3_FEATURES:-}" ]; then
+    feature_args=(--features "$VORB3_FEATURES")
+  fi
   printf '== %s full test graph ==\n' "$target"
   env "${envs[@]}" VORB3_STACK_KB=128 \
-    cargo test -p vorb3 --target "$target" --release --all-features --offline
+    cargo test -p vorb3 --target "$target" --release "${feature_args[@]}" --offline
   printf '== %s 32 KiB stack target ==\n' "$target"
-  env "${envs[@]}" VORB3_STACK_KB=32 \
-    cargo test -p vorb3 --target "$target" --release --test stack --offline
+  stack_test=stack
+  if [ -n "${VORB3_FEATURES:-}" ]; then stack_test=nist_stack; fi
+  if [ "$stack_test" = nist_stack ]; then
+    env "${envs[@]}" VORB3_STACK_KB=32 \
+      cargo test -p vorb3 --target "$target" --release "${feature_args[@]}" \
+      --test "$stack_test" --offline -- --ignored
+  else
+    env "${envs[@]}" VORB3_STACK_KB=32 \
+      cargo test -p vorb3 --target "$target" --release "${feature_args[@]}" \
+      --test "$stack_test" --offline
+  fi
 }
 
 run_full aarch64-unknown-linux-gnu "$WORK/aarch64-gcc" \

@@ -103,7 +103,7 @@ fn update_length(hasher: &mut Wh512Hasher, length: usize) {
     hasher.update(&encoded);
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(any(feature = "nist1", feature = "nist3"))))]
 mod tests {
     use super::Transcript;
 

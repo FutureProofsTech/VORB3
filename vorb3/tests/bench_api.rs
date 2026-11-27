@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![cfg(not(any(feature = "nist1", feature = "nist3")))]
 //! Exercise the non-default benchmark API wrappers.
 
 use vorb3::bench_api::{

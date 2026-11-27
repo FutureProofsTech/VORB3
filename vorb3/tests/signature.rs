@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![cfg(not(any(feature = "nist1", feature = "nist3")))]
 //! Signature encoding/equality/debug coverage.
 
 use vorb3::signature::Signature;

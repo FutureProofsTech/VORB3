@@ -73,7 +73,7 @@ pub fn ggm_reconstruct_root(
 #[must_use]
 #[inline]
 pub fn transcript_challenges(
-    public_key: &[u8; 72],
+    public_key: &[u8; crate::PUBLIC_KEY_LEN],
     salt: &[u8; SALT_LEN],
     message: &[u8],
     roots: &[u8; TREE_COUNT * COMMITMENT_LEN],

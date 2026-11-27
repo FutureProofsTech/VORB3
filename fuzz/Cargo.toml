@@ -9,6 +9,11 @@ cargo-fuzz = true
 
 [workspace]
 
+[features]
+default = []
+nist1 = ["vorb3/nist1"]
+nist3 = ["vorb3/nist3"]
+
 [dependencies]
 libfuzzer-sys = "0.4"
 vorb3 = { path = "../vorb3" }

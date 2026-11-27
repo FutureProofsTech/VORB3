@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![cfg(not(any(feature = "nist1", feature = "nist3")))]
 //! GF(2^288) known-answer and law tests.
 #![allow(clippy::arithmetic_side_effects)] // field operators are total; no integer overflow.
 //!

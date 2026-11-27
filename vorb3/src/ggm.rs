@@ -414,7 +414,7 @@ mod kani_proofs {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(any(feature = "nist1", feature = "nist3"))))]
 mod tests {
     use super::{hidden_opening, reconstruct_root, tree_root};
     use crate::field::F288;

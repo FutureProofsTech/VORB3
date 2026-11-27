@@ -154,20 +154,22 @@ BLAKE3 counter-high-word gap was fixed with
   and is not claimed.
 - Z3 proves the toy GF(2^8) selector has an UNSAT counterexample
   (`scripts/z3_selector.py`).
-- SymPy verifies the frozen polynomial is irreducible over GF(2):
+- SymPy verifies every profile polynomial is irreducible over GF(2):
 
 ```text
-x^288 + x^11 + x^10 + x + 1  irreducible: True
+x^288 + x^11 + x^10 + x + 1                 irreducible: True
+x^160 + x^5 + x^3 + x^2 + 1                 irreducible: True
+x^224 + x^9 + x^8 + x^3 + 1                 irreducible: True
 ```
 
 ### 3.6 Memory, UB, and runtime checks
 
 | Check | Result |
 |---|---|
-| ASan, full all-features test graph | PASS, no reports |
+| ASan, full default/profile test graphs | PASS, no reports |
 | Miri: full sign+verify KAT, CT, zeroize, profile, BLAKE3, field, keys, signature | PASS, including strict provenance/symbolic alignment; full KAT took about 1h41m wall |
 | Valgrind memcheck on attack/bench, sign-test, redteam, model-differential, and field-differential paths | 0 errors, 0 definite/indirect leaks; one 48-byte possible-loss record is in the std test harness, not the library |
-| `cargo-careful` full all-features test graph | PASS |
+| `cargo-careful` full default test graph | PASS |
 | Nextest | 49 tests, all pass |
 | Overflow/debug-assertion release build | PASS |
 
@@ -256,6 +258,37 @@ cargo llvm-lines: 15,679 monomorphized lines
 cargo bloat:      vorb3 .text ≈87.5 KiB in the attack binary
 CycloneDX SBOM:   vorb3, zero third-party components
 ```
+
+### 3.11 NIST-tier packs
+
+Two compact packs share the frozen 15-round protocol and use the mandatory
+32 trees (31 wires + mask):
+
+| Pack | Field | Signature | Quantum / classical floor | Status |
+|---|---|---:|---:|---|
+| NIST Level 1+ | GF(2^160) | 7,976 B | ≈76.5 / 153 | KAT + attacks + gate |
+| NIST Level 3+ | GF(2^224) | 10,296 B | ≈108.5 / 217 | KAT + attacks + gate |
+
+Evidence:
+
+- model KAT and 28-case differential pass for both;
+- 4,096 field differential records pass for both;
+- structured envelope/replay/damage/swap attacks pass for both;
+- exhaustive single-bit sweep: **63,808** rejected (160/32), **82,368**
+  rejected (224/32);
+- Kani **16/16** each;
+- ASan full test graph pass each; selected field/key primitives pass Miri
+  (Level 3+ key path with strict provenance and symbolic alignment);
+- coverage **100% functions**, **99.70% lines** each; the six residual lines are
+  guard returns in test code, not protocol statements;
+- 300-second six-target libFuzzer campaigns: **7,260,135** executions
+  (Level 1+) and **18,848,000** (Level 3+), zero crashes;
+- 32 KiB release stack target passes each;
+- two clean release builds produce byte-identical rlibs for each pack;
+- 403 targeted mutants each: 316 caught, 24 missed, 53 unviable, 10 timeouts;
+  15 mutation-equivalence classes are discharged with Z3; the remaining misses
+  are unobservable `Drop` wipes;
+- AArch64, s390x, ppc64, i686, Windows/Wine, and WASI runtime passes.
 
 ## 4. Findings
 

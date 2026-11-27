@@ -5,13 +5,15 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
-description = "VORB3-SP1 post-quantum signature library (SP-288/35)"
+description = "VORB3-SP1 post-quantum signature library (SP-288/35; NIST L1+/L3+ profiles)"
 readme = "README.md"
 keywords = ["cryptography", "post-quantum", "signature", "no-std"]
 categories = ["cryptography", "no-std"]
 
 [features]
 default = []
+nist1 = []
+nist3 = []
 bench-api = []
 
 [dependencies]

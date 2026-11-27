@@ -4,8 +4,12 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 seconds="${1:-600}"
+features="${FUZZ_FEATURES:-}"
+tag="${FUZZ_TAG:-default}"
 cd fuzz
-cargo +nightly fuzz build >/tmp/opencode/fuzz_build.log 2>&1
+build_args=()
+if [ -n "$features" ]; then build_args+=(--features "$features"); fi
+cargo +nightly fuzz build "${build_args[@]}" >/tmp/opencode/fuzz_build.log 2>&1
 mkdir -p artifacts/{verify,verify_any,sign,parse,field,rain}
 bin=target/x86_64-unknown-linux-gnu/release
 for target in verify verify_any sign parse field rain; do
@@ -18,7 +22,7 @@ for target in verify verify_any sign parse field rain; do
   esac
   "$bin/$target" -max_total_time="$seconds" -max_len="$max_len" \
     -use_value_profile=1 -artifact_prefix="$PWD/artifacts/$target/" \
-    -print_final_stats=1 "corpus/$target" >"/tmp/opencode/fuzz_${target}.log" 2>&1 &
+    -print_final_stats=1 "corpus/$target" >"/tmp/opencode/fuzz_${tag}_${target}.log" 2>&1 &
 done
 wait
 printf 'FUZZ CAMPAIGN COMPLETE\n'

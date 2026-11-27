@@ -7,19 +7,32 @@ printf '== fmt ==\n'
 cargo fmt --all --check
 
 printf '== clippy ==\n'
-cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings
+cargo clippy --workspace --all-targets --features "${VORB3_FEATURES:-bench-api}" --locked --offline -- -D warnings
 
 printf '== tests ==\n'
-cargo test --workspace --locked --offline
+cargo test --workspace --features "${VORB3_FEATURES:-bench-api}" --locked --offline
 
 printf '== stack target (release, 32 KiB) ==\n'
-VORB3_STACK_KB=32 cargo test --package vorb3 --test stack --release --locked --offline
+stack_test=stack
+profile_args=()
+if [ -n "${VORB3_FEATURES:-}" ]; then
+  stack_test=nist_stack
+  profile_args=(--features "$VORB3_FEATURES")
+fi
+if [ "$stack_test" = nist_stack ]; then
+  VORB3_STACK_KB=32 cargo test --package vorb3 --test "$stack_test" --release \
+    --features "${VORB3_FEATURES:-bench-api}" --locked --offline -- --ignored
+else
+  VORB3_STACK_KB=32 cargo test --package vorb3 --test "$stack_test" --release \
+    --features "${VORB3_FEATURES:-bench-api}" --locked --offline
+fi
 
 printf '== release build ==\n'
-cargo build --workspace --release --locked --offline
+cargo build --workspace --release --features "${VORB3_FEATURES:-bench-api}" --locked --offline
 
 printf '== bare-metal no_std lib build ==\n'
-cargo build --package vorb3 --lib --target thumbv7em-none-eabihf --locked --offline
+cargo build --package vorb3 --lib --target thumbv7em-none-eabihf --locked --offline \
+  "${profile_args[@]}"
 
 printf '== dependency proof ==\n'
 ./scripts/check-no-deps.sh

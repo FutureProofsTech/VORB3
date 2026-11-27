@@ -2,7 +2,7 @@
 
 **Status:** optimized-build checkpoint (2026-11-27). Evidence, not a formal
 constant-time proof.
-**Profile:** SP-288/35.
+**Profile:** SP-288/35 baseline; the NIST-tier packs are reported in §2.5.
 
 ## 1. Scope and method
 
@@ -145,6 +145,21 @@ CTGRIND PASS: no other secret-dependent branch or address
 
 No secret-dependent branch or address was found in Rain, GGM, BLAKE3, the
 transcript, wire filling, or proof assembly for the exercised lengths.
+
+### 2.5 NIST-tier packs
+
+The same randomized-class harness was run at 50,000 samples per test on the
+release build of each pack:
+
+| Pack | Sign mean (a/b) | Sign Welch t | Verify mean (a/b) | Verify Welch t |
+|---|---:|---:|---:|---:|
+| Level 1+ (SP-160/32) | 10,534,457 / 10,539,700 ns | -1.820 | 5,313,381 / 5,309,187 ns | 2.113 |
+| Level 3+ (SP-224/32) | 16,072,904 / 16,072,739 ns | 0.026 | 5,467,552 / 5,467,535 ns | 0.012 |
+
+All four tests are inside the `|t| < 4.5` acceptance threshold. These are
+statistical measurements, not a formal constant-time proof. Selected field and
+key primitives pass Miri for both packs; the Level 3+ key path is additionally
+checked with strict provenance and symbolic alignment.
 
 ## 3. Interpretation limits
 

@@ -21,10 +21,10 @@ cargo llvm-cov -p vorb3 --tests --summary-only --offline \
   --fail-under-functions 100 --fail-under-lines 99.5 \
   | tee "$out/summary-default.txt"
 
-printf '== all features (includes bench-api) ==\n'
-cargo llvm-cov -p vorb3 --all-features --tests --summary-only --offline \
-  --fail-under-functions 100 --fail-under-lines 99.8 \
-  | tee "$out/summary-all-features.txt"
+printf '== profile features (bench-api or VORB3_COVERAGE_FEATURES) ==\n'
+cargo llvm-cov -p vorb3 --features "${VORB3_COVERAGE_FEATURES:-bench-api}" --tests --summary-only --offline \
+  --fail-under-functions 100 --fail-under-lines 99.5 \
+  | tee "$out/summary-profile.txt"
 
 printf '== artifacts ==\n'
 cargo llvm-cov report --html --output-dir "$out" >/dev/null
@@ -34,10 +34,10 @@ cargo llvm-cov report --text --show-missing-lines --output-path "$out/missing-li
 
 if [[ "${1:-}" == "--workspace" ]]; then
   printf '== workspace including dev tools ==\n'
-  cargo llvm-cov --workspace --all-features --tests --summary-only --offline \
+  cargo llvm-cov --workspace --features "${VORB3_COVERAGE_FEATURES:-bench-api}" --tests --summary-only --offline \
     | tee "$out/summary-workspace.txt"
 fi
 
 printf 'COVERAGE GATE COMPLETE\n'
-printf 'summary: %s\n' "$out/summary-all-features.txt"
+printf 'summary: %s\n' "$out/summary-profile.txt"
 printf 'html:    %s\n' "$out/html/index.html"

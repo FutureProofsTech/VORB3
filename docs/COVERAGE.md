@@ -1,4 +1,4 @@
-# VORB3 SP-288/35 — Coverage Report
+# VORB3 — Coverage Report
 
 **Status:** local coverage checkpoint (2026-11-27).
 **Tooling:** `cargo-llvm-cov 0.9.1`, rustc 1.99.0, `llvm-tools`.
@@ -16,6 +16,8 @@ release stack claim is tested separately by `scripts/gate.sh`.
 |---|---:|---:|---:|
 | `vorb3` default features (shipped library) | **100.00%** (169/169) | **99.89%** (1827/1829) | 98.74% |
 | `vorb3` all features (includes `bench-api`) | **100.00%** (195/195) | **99.90%** (2050/2052) | 98.82% |
+| `vorb3` NIST Level 1+ (`nist1,bench-api`) | **100.00%** (189/189) | **99.70%** (1974/1980) | 98.78% |
+| `vorb3` NIST Level 3+ (`nist3,bench-api`) | **100.00%** (189/189) | **99.70%** (1974/1980) | 98.78% |
 | Whole workspace including dev CLIs | 72.49% (195/269) | 74.96% (2048/2732) | 73.19% |
 
 The workspace total is lower because `tools/attack` and `tools/bench` are CLI
@@ -24,7 +26,7 @@ None is shipped library code. Their behavior is exercised by
 `scripts/bench.sh`, `tools/attack`, and `scripts/ctgrind.sh`, not by the unit
 test graph.
 
-## Per-file, all features
+## Per-file, default baseline (with `bench-api`)
 
 | File | Functions | Lines | Regions |
 |---|---:|---:|---:|
@@ -42,7 +44,9 @@ test graph.
 
 ## Residual lines
 
-LLVM's line summary still counts **two** lines as missed:
+For the default baseline, LLVM's line summary still counts **two** lines as missed.
+The NIST profiles have **six** residual lines, all guard returns inside test
+code. The baseline residuals are:
 
 - one closing-brace / `if let` false-region in `blake3::push_cv`;
 - one closing-brace / `if let` false-region in `sign::fill_openings`.
@@ -76,7 +80,7 @@ kept and are not all triggered. Lines and functions are the requested metrics.
 ## Reproduce
 
 ```bash
-./scripts/coverage.sh              # default + all features, HTML/JSON/LCOV
+./scripts/coverage.sh              # default + profile features, HTML/JSON/LCOV
 ./scripts/coverage.sh --workspace  # also the dev-tool scope
 ```
 
@@ -84,7 +88,7 @@ Artifacts:
 
 ```text
 target/coverage/summary-default.txt
-target/coverage/summary-all-features.txt
+target/coverage/summary-profile.txt
 target/coverage/html/index.html
 target/coverage/coverage.json
 target/coverage/lcov.info
@@ -92,7 +96,7 @@ target/coverage/missing-lines.txt
 ```
 
 The coverage script fails if function coverage is below 100% or line coverage
-falls below the configured thresholds (99.5% default, 99.8% all-features).
+falls below the configured thresholds (99.5% lines, 100% functions).
 
 ## Caveat
 

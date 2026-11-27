@@ -1,6 +1,6 @@
 # VORB3 Documentation Index
 
-**Status:** v1.0.0 official local release (2026-11-27).
+**Status:** v1.1.0 release — v1.0.0 SP-288/35 plus the NIST Level 1+ pack; the Level 3+ pack is staged for the v1.2.0 tag (2026-11-27).
 The production `no_std` crate is implemented and locally exercised; this is not
 a release certificate and no external audit is claimed.
 
@@ -13,7 +13,7 @@ a release certificate and no external audit is claimed.
 | `THREAT-MODEL.md` | Assets, adversaries, trust boundaries |
 | `ASSURANCE.md` | Requirement → evidence matrix and Phase 7 status |
 | `SECURITY-CASE.md` | Security target, F-33 union bound, assumptions |
-| `DECISIONS.md` | ADRs D1–D24 and findings F-01–F-33 |
+| `DECISIONS.md` | ADRs D1–D25 and findings F-01–F-33 |
 | `PHASE0-REDTEAM.md` | Internal adversarial review |
 | `PHASE1-7-REPORT.md` | Phase 1–7 implementation and evidence checkpoint |
 | `PHASE7-ATTACK-REPORT.md` | Bit-flip, fuzz, stack, Kani, cachegrind, assembly |
@@ -24,6 +24,7 @@ a release certificate and no external audit is claimed.
 | `COVERAGE.md` | llvm-cov line/function/region coverage report |
 | `REDTEAM-CAMPAIGN.md` | Extended multi-tool red-team campaign |
 | `RELEASES.md` | Versioned release surface, hashes, and evidence |
+| `NIST-PACKS.md` | NIST Level 1+ / Level 3+ parameter packs and evidence |
 | `sbom/vorb3.cdx.json` | CycloneDX SBOM snapshot (zero third-party components) |
 | `../model/vorb3_model.py` | Independent Python/py-blake3 model |
 | `../model/README.md` | Model usage and limitations |
@@ -40,9 +41,13 @@ under the F-33 bound and is not used for a 128-bit claim.
 ./scripts/gate.sh          # fmt, clippy, tests, 32 KiB release stack, builds
 ./scripts/gate-deep.sh     # 18 Kani harnesses + Miri (strict provenance)
 ./scripts/ctgrind.sh       # Valgrind secret-taint check for keygen/sign
+./scripts/nist-gate.sh nist1 # full NIST Level 1+ gate
+./scripts/nist-gate.sh nist3 # full NIST Level 3+ gate
 ./scripts/cross-runtime.sh # AArch64, s390x (big-endian), i686 test graphs
 ./scripts/portable-runtime.sh # ppc64 big-endian + Windows/Wine test graphs
 ./scripts/wasm-runtime.sh  # wasm32-wasip1 functional graph under wasmtime
+VORB3_FEATURES=nist1 ./scripts/cross-runtime.sh  # same, Level 1+ profile
+VORB3_FEATURES=nist3 ./scripts/wasm-runtime.sh   # same, Level 3+ profile
 ./scripts/reproducible.sh  # two clean rlib builds, byte compare
 ./scripts/afl-campaign.sh  # secondary AFL++ parse campaign
 python3 scripts/verify_mutation_equivalences.py  # Z3 mutation-equivalence checks

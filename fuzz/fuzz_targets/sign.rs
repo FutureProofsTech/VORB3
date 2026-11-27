@@ -3,9 +3,9 @@
 use libfuzzer_sys::fuzz_target;
 use vorb3::keys::{ExpandedSecretKey, SecretKey};
 use vorb3::sign::{sign_into, verify_bytes};
-use vorb3::SIGNATURE_LEN;
+use vorb3::{FIELD_BYTES, SIGNATURE_LEN};
 
-const SEED_LEN: usize = 36;
+const SEED_LEN: usize = FIELD_BYTES;
 const ENTROPY_LEN: usize = 32;
 const PREFIX: usize = SEED_LEN + ENTROPY_LEN;
 

@@ -1,3 +1,4 @@
+#![cfg(not(any(feature = "nist1", feature = "nist3")))]
 //! C ABI wrapper used by the Valgrind ctgrind harness.
 //!
 //! The wrapper itself contains `unsafe` FFI glue; the `vorb3` library remains

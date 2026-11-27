@@ -1,8 +1,12 @@
 //! VORB3-SP1 post-quantum signature library.
 //!
-//! **Frozen profile:** SP-288/35 — GF(2^288), 35 GGM trees, depth 8, 15 rounds,
-//! 13,672-byte signature, 128-bit quantum target with a conservative ~140-bit
-//! floor.
+//! **Default frozen profile:** SP-288/35 — GF(2^288), 35 GGM trees, depth 8,
+//! 15 rounds, 13,672-byte signature, 128-bit quantum target with a conservative
+//! ~140-bit floor.
+//!
+//! **Alternative packs:** the mutually exclusive `nist1` and `nist3` features
+//! select SP-160/32 (NIST Level 1+) and SP-224/32 (NIST Level 3+) respectively.
+//! They keep the 15-round protocol and use the 32-tree minimum.
 //!
 //! # Status
 //!
@@ -64,10 +68,17 @@
 #![deny(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]
 
+#[cfg(all(feature = "nist1", feature = "nist3"))]
+compile_error!("nist1 and nist3 are alternative profile packs; enable only one");
+
 #[cfg(feature = "bench-api")]
 pub mod bench_api;
 pub mod blake3;
 mod ct;
+#[cfg(not(any(feature = "nist1", feature = "nist3")))]
+pub mod field;
+#[cfg(any(feature = "nist1", feature = "nist3"))]
+#[path = "field_nist.rs"]
 pub mod field;
 mod ggm;
 #[cfg(kani)]
@@ -80,16 +91,41 @@ mod transcript;
 mod zeroize;
 
 /// Frozen specification identifier.
+#[cfg(not(any(feature = "nist1", feature = "nist3")))]
 pub const SPEC_VERSION: &str = "VORB3-SP1-FROZEN-288/35-2026-11-26";
+/// Frozen specification identifier for the NIST Level 1+ pack.
+#[cfg(feature = "nist1")]
+pub const SPEC_VERSION: &str = "VORB3-SP1-NIST1P-160/32-2026-11-27";
+/// Frozen specification identifier for the NIST Level 3+ pack.
+#[cfg(feature = "nist3")]
+pub const SPEC_VERSION: &str = "VORB3-SP1-NIST3P-224/32-2026-11-27";
 
 /// Field size in bits.
+#[cfg(not(any(feature = "nist1", feature = "nist3")))]
 pub const FIELD_BITS: usize = 288;
+/// Field size in bits.
+#[cfg(feature = "nist1")]
+pub const FIELD_BITS: usize = 160;
+/// Field size in bits.
+#[cfg(feature = "nist3")]
+pub const FIELD_BITS: usize = 224;
 
 /// Field element / GGM seed size in bytes.
+#[cfg(not(any(feature = "nist1", feature = "nist3")))]
 pub const FIELD_BYTES: usize = 36;
+/// Field element / GGM seed size in bytes.
+#[cfg(feature = "nist1")]
+pub const FIELD_BYTES: usize = 20;
+/// Field element / GGM seed size in bytes.
+#[cfg(feature = "nist3")]
+pub const FIELD_BYTES: usize = 28;
 
 /// Number of GGM trees.
+#[cfg(not(any(feature = "nist1", feature = "nist3")))]
 pub const TREE_COUNT: usize = 35;
+/// Number of GGM trees (protocol minimum for 15 rounds).
+#[cfg(any(feature = "nist1", feature = "nist3"))]
+pub const TREE_COUNT: usize = 32;
 
 /// GGM tree depth.
 pub const TREE_DEPTH: usize = 8;
@@ -112,20 +148,30 @@ pub const H2_LEN: usize = 64;
 /// WH512 commitment / Merkle node / root length in bytes.
 pub const COMMITMENT_LEN: usize = 64;
 
-/// `wire_d` field length in bytes (31 × 36).
-pub const WIRE_D_LEN: usize = 1_116;
+/// Public key length in bytes (`pt || ct`).
+pub const PUBLIC_KEY_LEN: usize = 2 * FIELD_BYTES;
 
-/// Copath field length in bytes (35 trees × 8 siblings × 36 bytes).
-pub const COPATH_LEN: usize = 10_080;
+/// `wire_d` field length in bytes (`31 × FIELD_BYTES`).
+pub const WIRE_D_LEN: usize = SECRET_WIRES * FIELD_BYTES;
 
-/// Hidden leaf commitments field length in bytes (35 × 64).
-pub const HIDDEN_COMS_LEN: usize = 2_240;
+/// Copath field length in bytes (`TREE_COUNT × 8 × FIELD_BYTES`).
+pub const COPATH_LEN: usize = TREE_COUNT * TREE_DEPTH * FIELD_BYTES;
+
+/// Hidden leaf commitments field length in bytes.
+pub const HIDDEN_COMS_LEN: usize = TREE_COUNT * COMMITMENT_LEN;
 
 /// Frozen signature length in bytes.
+#[cfg(not(any(feature = "nist1", feature = "nist3")))]
 pub const SIGNATURE_LEN: usize = 13_672;
+/// Frozen signature length in bytes.
+#[cfg(feature = "nist1")]
+pub const SIGNATURE_LEN: usize = 7_976;
+/// Frozen signature length in bytes.
+#[cfg(feature = "nist3")]
+pub const SIGNATURE_LEN: usize = 10_296;
 
 /// Number of `QuickSilver` multiplication gates (4 per round).
 pub const GATES: usize = 60;
 
-/// Number of challenge bits (35 trees × 8 bits).
-pub const CHALLENGE_BITS: usize = 280;
+/// Number of challenge bits (`TREE_COUNT × 8`).
+pub const CHALLENGE_BITS: usize = TREE_COUNT * 8;

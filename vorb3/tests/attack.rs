@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![cfg(not(any(feature = "nist1", feature = "nist3")))]
 //! Phase-7 negative tests: mutations, truncation, wrong key/message.
 
 use vorb3::keys::{ExpandedSecretKey, PublicKey, SecretKey};

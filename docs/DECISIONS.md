@@ -414,3 +414,37 @@ Rain-SP1 cryptanalysis, 72-hour soak, and external review remain open.
 **Evidence:** `docs/REDTEAM-CAMPAIGN.md`, `docs/COVERAGE.md`,
 `docs/SIDE-CHANNEL.md`, `scripts/ctgrind.sh`, `scripts/cross-runtime.sh`,
 `scripts/wasm-runtime.sh`, `scripts/reproducible.sh`.
+
+---
+
+## D25 — NIST Level 1+ / Level 3+ packs
+
+**Status:** Accepted for the local release line (2026-11-27).
+
+**Context:** The frozen v1.0.0 SP-288/35 profile is above NIST Level 5 under the
+project's conservative accounting. Product tiers were requested for NIST
+Level 1 and Level 3, labelled “1+”/“3+” to make the margin explicit.
+
+**Constraint:** 15 rounds require `T >= 2R+2 = 32` GGM trees (31 secret wires
+plus one mask leaf). The proposed 18/27-tree variants are not usable without
+reducing rounds, which is not accepted. The packs therefore keep 32 trees and
+vary the field.
+
+**Choice:**
+- NIST Level 1+: GF(2^160), 32 trees, 15 rounds, 7,976-byte signature,
+  polynomial `x^160 + x^5 + x^3 + x^2 + 1`, ≈76.5-bit quantum / 153-bit
+  classical floor.
+- NIST Level 3+: GF(2^224), 32 trees, 15 rounds, 10,296-byte signature,
+  polynomial `x^224 + x^9 + x^8 + x^3 + 1`, ≈108.5-bit quantum / 217-bit
+  classical floor.
+- Both are alternative Cargo features (`nist1`, `nist3`); enabling both is a
+  compile error.
+
+**Consequences:** two full model/KAT packs, 28-case signature differentials,
+4,096-record field differentials, structured attacks, single-bit sweeps, Kani,
+ASan, coverage, fuzzing, mutation, stack, and cross-runtime checks. The
+15-round protocol and 60-gate circuit are unchanged.
+
+**Evidence:** `docs/NIST-PACKS.md`, `docs/RELEASES.md`,
+`scripts/nist-gate.sh`, `scripts/fuzz-campaign.sh`,
+`scripts/cross-runtime.sh`, `scripts/portable-runtime.sh`.

@@ -119,6 +119,23 @@ SP320_36 = Params(
     depth=8,
     rounds=15,
 )
+
+# NIST-tier packs with the mandatory 32 trees for 15 rounds / 31 wires + mask.
+SP160_32 = Params(
+    bits=160,
+    poly=(1 << 160) | (1 << 5) | (1 << 3) | (1 << 2) | 1,
+    trees=32,
+    depth=8,
+    rounds=15,
+)
+SP224_32 = Params(
+    bits=224,
+    poly=(1 << 224) | (1 << 9) | (1 << 8) | (1 << 3) | 1,
+    trees=32,
+    depth=8,
+    rounds=15,
+)
+
 SP160 = Params(
     bits=320,
     poly=(1 << 320) | (1 << 4) | (1 << 3) | (1 << 1) | 1,
@@ -897,6 +914,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.sp160 or args.all:
         _selftest(SP320_36)
         _selftest(SP160)
+    if args.all:
+        _selftest(SP160_32)
+        _selftest(SP224_32)
     if args.full or args.both or args.all:
         _selftest(FULL)
     if (not args.full and not args.sp160) or args.both or args.all:
