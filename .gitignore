@@ -28,3 +28,6 @@ docs/papers/*.toc
 docs/papers/*.fls
 docs/papers/*.fdb_latexmk
 docs/papers/*.synctex.gz
+
+# Local code-standard draft (kept out of the published tree).
+code standard
