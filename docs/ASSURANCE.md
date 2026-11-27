@@ -29,13 +29,13 @@ exercised; the security case remains a candidate case.
 | SUF-CMA | cross-key/msg + fuzz | testkit/cargo-fuzz | attack logs | G4 |
 | Constant-time sign | dudect sign/verify + ctgrind + cachegrind + asm | attack/valgrind | t-test/cache/asm/ctgrind logs | G3 |
 | Zeroization | canary scan + explicit wipe tests | testkit | scan/wipe report | G5 |
-| Stack | 32 KB per-op release on x86_64/aarch64/s390x/i686; 64 KB full call | testkit/qemu | stack report | G1/G4 |
+| Stack | 32 KB per-op release on x86_64/aarch64/s390x/i686/ppc64/Windows/WASI; 64 KB full call | testkit/qemu/Wine | stack report | G1/G4 |
 | Reproducibility | two clean builds | scripts | hash comparison | G6 |
-| Cross-arch | x86_64/aarch64/s390x/i686 runtime; ppc64/Apple/Windows builds; WASI runtime | qemu/wasmtime | KAT report | G6 |
+| Cross-arch | x86_64/aarch64/s390x/i686/ppc64/Windows runtime; Apple build; WASI runtime | qemu/Wine/wasmtime | KAT report | G6 |
 | Coverage | 100% functions; 99.90% lines | llvm-cov | coverage report | G1 |
-| Mutation | 494 mutants, 371 caught, 30 equivalent/unobservable misses, 84 unviable, 9 timeouts | cargo-mutants | mutation report | G1 |
+| Mutation | 494 mutants, 371 caught, 27 Z3-checked equivalents + 3 unobservable `Drop`, 84 unviable, 9 timeouts | cargo-mutants/Z3 | mutation report | G1 |
 | Fuzzing | 77.8M + 327.7M extended (405.6M total); 72h deferred | cargo-fuzz/AFL++ | corpus/crash log | G4 |
-| Formal | 11 Kani helpers; full sign/verify open | Kani | proof report | G2 |
+| Formal | 18 Kani helpers; full sign/verify open | Kani | proof report | G2 |
 | Malicious prover | algebraic model + reduced Kani/Z3 | model/Kani/Z3 | soundness report | G2 |
 | Spec conformance | byte binding + KAT | docs/testkit | manifest | G6 |
 
@@ -90,21 +90,21 @@ human-readable conclusion.
 | Area | Status at checkpoint |
 |---|---|
 | Rust implementation + KAT | implemented; byte-identical to Python model |
-| 32 KiB per-operation stack | met in release (`sign_into`, `verify_bytes`) |
+| 32 KiB per-operation stack | met in release on x86_64, aarch64, s390x, i686, ppc64, Windows, WASI |
 | 64 KiB full sign call with stack output | met |
 | 109,376 single-bit signature sweep | met, zero accepted |
 | Canary + secret-fragment scan | met |
 | 10-minute fuzz campaign | met, 77.8M executions, no crashes |
 | Extended 1-hour fuzz campaign | met, 327,716,350 executions (405,581,569 total), zero crashes |
 | 72-hour / 1B fuzz | **deferred by direction** |
-| Kani helper proofs | 11/11 pass |
+| Kani helper proofs | 18/18 pass |
 | Full symbolic Kani sign/verify | **not tractable; open limitation** |
-| Miri CT/zeroization/profile/BLAKE3/field/keys/signature | pass |
-| Cross-architecture runtime | aarch64 + s390x (big-endian) + i686 full graph; WASI functional graph |
-| Mutation | 494 mutants: 371 caught, 30 equivalent/unobservable misses, 84 unviable, 9 timeouts |
+| Miri full sign+verify KAT, CT/zeroization/profile/BLAKE3/field/keys/signature | pass |
+| Cross-architecture runtime | aarch64 + s390x (big-endian) + ppc64 (big-endian) + i686 + Windows full graph; WASI functional + 32 KiB stack |
+| Mutation | 494 mutants: 371 caught, 27 Z3-checked equivalents + 3 unobservable `Drop`, 84 unviable, 9 timeouts |
 | Coverage | 100% functions, 99.90% lines (all features) |
 | ctgrind | only the public-key degeneracy check depends on secret-derived data; suppressed check leaves zero |
-| Reproducible rlib | `976cd795…` twice |
+| Reproducible rlib | `36bd002b…` twice |
 | dudect sign/verify, cachegrind, assembly | local evidence; see side-channel report |
 | Rain-SP1 dossier | local analysis complete; no proof |
 | External audit | **none** |

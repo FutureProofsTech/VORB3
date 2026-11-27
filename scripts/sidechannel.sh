@@ -3,11 +3,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-printf '== dudect: signing (20k) ==\n'
-./target/release/vorb3-attack dudect 20000
+printf '== dudect: signing (50k) ==\n'
+./target/release/vorb3-attack dudect 50000
 
-printf '== dudect: verification (20k) ==\n'
-./target/release/vorb3-attack dudect-verify 20000
+printf '== dudect: verification (50k) ==\n'
+./target/release/vorb3-attack dudect-verify 50000
 
 printf '== cachegrind: fixed key ==\n'
 valgrind --tool=cachegrind --cache-sim=yes --branch-sim=yes \

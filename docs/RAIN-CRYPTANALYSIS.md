@@ -48,6 +48,20 @@ max_a,b Pr[ x^-1 XOR (x XOR a)^-1 = b ] = 4 / 2^n
 Verified exhaustively for GF(2^8): maximum count 4 out of 256
 (`DP = 2^-6`), matching `4/256`.
 
+For the full field there is also a direct algebraic argument. For `a != 0`
+and `b != 0`, clearing denominators in
+
+```text
+1/x XOR 1/(x XOR a) = b
+```
+
+gives the quadratic `b x^2 XOR a b x XOR a = 0`, which has at most two roots;
+the two boundary points `x = 0` and `x = a` can add at most two more. Hence the
+differential count is at most 4 for every `n`, including `n = 288`. For `b = 0`
+there is no solution other than the boundary cases, so the bound is `4/2^n`.
+This is a proof of single-round differential uniformity, not a multi-round
+security proof.
+
 Affine input/output maps (XOR constants and multiplication by nonzero `c_r`)
 do not change the differential distribution. Each Rain round therefore has
 maximum differential probability at most `4 / 2^288 = 2^-286`.
@@ -84,6 +98,7 @@ Toy Rain over GF(2^8), same round structure, random nonzero constants:
 | 2 | 6 | 0.023438 | 126/256 |
 | 3 | 6 | 0.023438 | 125/256 |
 | 4 | 6 | 0.023438 | 124/256 |
+| 15 | 6 | 0.023438 | 117/256 |
 
 The two-round value exceeds the one-round `4/256` bound because intermediate
 differences may collide; it remains below the composition bound
@@ -116,6 +131,7 @@ computed with a Möbius transform over all 256 inputs:
 | 2 | 7 |
 | 3 | 7 |
 | 4 | 7 |
+| 15 | 7 |
 
 Degree saturates immediately at the maximum `n - 1`. An interpolation attack
 on the full instance needs on the order of `2^288` points; Gröbner/linearization
@@ -171,7 +187,9 @@ below the 128-bit target”**, not “proved 128-bit secure.”
 ## 9. Limits and next work
 
 - Full-width differential/linear trail search with SAT/SMT or MILP.
-- A proper multi-round linear-hull analysis.
+- A proper multi-round linear-hull analysis; the single-round differential
+  bound is proved algebraically and the 15-round crude composition bound is
+  `2^-258`, but no useful multi-round linear bound is proved.
 - Gröbner/linearization experiments on reduced-width toy instances.
 - Independent cryptanalysis; none has been performed.
 - The 72-hour fuzz soak remains deferred by direction; it exercises the

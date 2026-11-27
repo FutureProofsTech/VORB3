@@ -142,12 +142,12 @@ def main() -> int:
         )
 
     print("== toy Rain algebraic degree (GF(2^8)) ==")
-    for rounds in (1, 2, 3, 4):
+    for rounds in (1, 2, 3, 4, 15):
         degrees = toy_degree(bits, poly, rounds)
         print(f"rounds={rounds} max degree={max(degrees)} degrees={degrees[:8]}...")
 
     print("== toy Rain differential (GF(2^8)) ==")
-    for rounds in (1, 2, 3, 4):
+    for rounds in (1, 2, 3, 4, 15):
         worst, distinct, probability = toy_differential(bits, poly, rounds)
         print(f"rounds={rounds} max count={worst} DP={probability:.6f} distinct_outputs={distinct}/256")
 

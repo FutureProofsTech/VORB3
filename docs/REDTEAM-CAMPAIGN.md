@@ -29,11 +29,11 @@ release limits are in §5.
 | `cargo-fuzz` / libFuzzer | used | six ASan targets, bounded campaigns |
 | AFL++ via `cargo-afl` | used | secondary parse campaign |
 | `cargo-mutants` | used | full 494-mutant inventory |
-| Kani | used | 11 bounded proofs |
+| Kani | used | 18 bounded proofs |
 | Miri | used | UB/aliasing/provenance checks |
 | Valgrind memcheck | used | leaks/uninitialised memory, ctgrind |
 | Valgrind cachegrind | used | cache/branch comparison |
-| Z3 + SymPy | used | toy selector UNSAT, polynomial irreducibility |
+| Z3 + SymPy | used | toy selector UNSAT, mutation-equivalence checks, polynomial irreducibility |
 | `cargo-llvm-cov` | used | line/function/region coverage |
 | ASan | used | full test graph |
 | `cargo-careful` | used | extra runtime UB checks |
@@ -42,7 +42,7 @@ release limits are in §5.
 | `cargo-geiger`, `cargo-machete`, `cargo-outdated` | used | unsafe/dependency hygiene |
 | `cargo-bloat`, `cargo-llvm-lines` | used | size/monomorphisation inventory |
 | `cargo-cyclonedx` | used | SBOM snapshot |
-| QEMU + cross gcc | used | AArch64, s390x, i686 runtime graphs |
+| QEMU + Wine + cross gcc | used | AArch64, s390x, i686, ppc64, Windows runtime graphs |
 | wasmtime | used | WASI functional graph |
 | `cargo-call-stack` | not used | requires nightly-2023-11-13; edition 2024; runtime stack tests used instead |
 | Creusot | installed, not applied | no Creusot annotations; Kani/Z3 cover the selected helpers |
@@ -129,7 +129,9 @@ The 30 misses are classified as:
 - **27 equivalent mutants**: OR-vs-XOR on disjoint masks (`CtChoice::select_u8`,
   `select_u64`, `spread64`, BLAKE3 flag lanes), `<` vs `<=` where equality
   yields the same `take`, a shift by zero, and a redundant ROOT-flag OR that
-  `root_bytes` re-adds.
+  `root_bytes` re-adds. `scripts/verify_mutation_equivalences.py` discharges
+  **15 Z3 equivalence checks** covering these 27 expression mutants, including
+  each `spread64` OR-to-XOR stage.
 - **3 unobservable `Drop` wipes**: safe Rust cannot inspect memory after drop;
   explicit wipe/canary tests remain the available evidence.
 
@@ -141,9 +143,13 @@ BLAKE3 counter-high-word gap was fixed with
 
 ### 3.5 Formal and algebraic checks
 
-- Kani: **11/11** harnesses pass (field encoding/additivity/multiplicative
-  identities/zero/select, CT equality/zero/select, masked GGM selection, byte
-  wipe).
+- Kani: **18/18** harnesses pass (field encoding/additivity/multiplicative
+  identities/zero/select, CT equality/zero/select, mask XOR equivalence, masked
+  GGM selection, public-key parsing/zero validation, signature length
+  acceptance/rejection for every length, byte and limb wipes). The public-key
+  zero predicate proof is the exact declassification that ctgrind observes.
+- `scripts/verify_mutation_equivalences.py`: 15 Z3 checks for all 27 equivalent
+  mutation survivors.
 - Full symbolic sign/verify remains intractable at the local 15-minute budget
   and is not claimed.
 - Z3 proves the toy GF(2^8) selector has an UNSAT counterexample
@@ -159,7 +165,7 @@ x^288 + x^11 + x^10 + x + 1  irreducible: True
 | Check | Result |
 |---|---|
 | ASan, full all-features test graph | PASS, no reports |
-| Miri: CT, zeroize, profile, BLAKE3, field, keys, signature | PASS, including strict provenance/symbolic alignment |
+| Miri: full sign+verify KAT, CT, zeroize, profile, BLAKE3, field, keys, signature | PASS, including strict provenance/symbolic alignment; full KAT took about 1h41m wall |
 | Valgrind memcheck on attack/bench, sign-test, redteam, model-differential, and field-differential paths | 0 errors, 0 definite/indirect leaks; one 48-byte possible-loss record is in the std test harness, not the library |
 | `cargo-careful` full all-features test graph | PASS |
 | Nextest | 49 tests, all pass |
@@ -212,19 +218,24 @@ x86_64-unknown-linux-gnu       native
 aarch64-unknown-linux-gnu      qemu-aarch64
 s390x-unknown-linux-gnu        qemu-s390x, big-endian
 i686-unknown-linux-gnu         native 32-bit
-wasm32-wasip1                  wasmtime, functional graph (no thread-stack test)
+powerpc64-unknown-linux-musl   qemu-ppc64, big-endian, static
+x86_64-pc-windows-gnu          Wine
+wasm32-wasip1                  wasmtime, functional graph + 32 KiB wasm stack
 ```
 
-The 32 KiB per-operation release stack test passes on x86_64, AArch64, s390x,
-and i686; the output-buffer-on-stack variant uses 64 KiB. Release library
-builds also pass for `powerpc64-unknown-linux-gnu` (big-endian),
-`aarch64-apple-darwin`, `x86_64-apple-darwin`,
-`x86_64-pc-windows-gnu`, `riscv32imac-unknown-none-elf`,
-`thumbv7em-none-eabihf`, and `wasm32-unknown-unknown`.
+The 32 KiB per-operation release stack test passes on x86_64, AArch64,
+s390x, i686, big-endian ppc64, and Windows; the output-buffer-on-stack variant
+uses 64 KiB. The WASI sign+verify KAT also passes with
+`max-wasm-stack=32768`. Release library builds pass for
+`powerpc64-unknown-linux-gnu` (big-endian), `aarch64-apple-darwin`,
+`x86_64-apple-darwin`, `riscv32imac-unknown-none-elf`,
+`thumbv7em-none-eabihf`, and `wasm32-unknown-unknown`; Apple remains
+compile-only because no macOS runtime is available.
 
-s390x is a real big-endian runtime check, not a compile-only claim. WASI
-preview1 has no user-controlled thread stack, so the thread-stack test is not
-applicable there.
+s390x and ppc64 are real big-endian runtime checks, not compile-only claims.
+WASI preview1 has no user-controlled thread stack, so the thread-stack test is
+not applicable there; the single-thread 32 KiB wasm-stack sign/verify path
+passes.
 
 ### 3.10 Reproducibility, supply chain, size
 
@@ -232,7 +243,7 @@ Two clean release rlib builds with the same `SOURCE_DATE_EPOCH` and
 `CARGO_INCREMENTAL=0` are byte-identical:
 
 ```text
-sha256 976cd795c7f96a917cdf74f4a9364b9b2acd86e2310023c42a56b0924791af3f
+sha256 36bd002b32f3ebb8c4d3db3ae5a6e9ed0f669607bd8a97500741b76e7ecf69cc
 ```
 
 ```text
@@ -250,15 +261,16 @@ CycloneDX SBOM:   vorb3, zero third-party components
 
 1. **No signature bypass, crash, or memory-safety report** was found in the
    single-bit sweep, structured attacks, 28-case differential, libFuzzer/AFL
-   campaigns, ASan, Miri, memcheck, or careful mode.
+   campaigns, ASan, **full sign+verify Miri**, memcheck, or careful mode.
 2. **Mutation testing found two real test gaps**: CT high-lane/limb assertions
    and the BLAKE3 counter high word. Both now have regression tests; the
    remaining misses are equivalent or unobservable.
 3. **ctgrind found only the public-key degeneracy check** on secret-derived
    data. It is a public-output declassification; no other secret-dependent
    branch or address was observed.
-4. **Cross-architecture execution is real**: AArch64, big-endian s390x, and
-   32-bit i686 all pass the full graph and the 32 KiB stack target.
+4. **Cross-architecture execution is real**: AArch64, big-endian s390x,
+   big-endian ppc64, 32-bit i686, and Windows/Wine all pass the full graph and
+   the 32 KiB stack target; WASI passes sign/verify within a 32 KiB wasm stack.
 5. **The rlib is reproducible** across clean builds in this environment.
 
 ## 5. Limits
@@ -272,18 +284,16 @@ CycloneDX SBOM:   vorb3, zero third-party components
   recorded above.
 - ctgrind, dudect, cachegrind, and assembly review are dynamic/measurement
   evidence, not formal constant-time proofs.
-- Full sign/verify interpretation under Miri exceeded the 10-minute local
-  budget; the selected primitives, profile, field, keys, signature, and short
-  BLAKE3 paths pass.
 - Zeroization is best-effort; compiler temporaries/registers cannot be audited
   in safe Rust, and post-drop memory is unobservable.
-- WASI preview1 cannot run the thread-stack test; the functional graph passes.
-- ppc64 big-endian and Apple/Windows targets are compile-only; no runtime
-  sysroot/toolchain is installed here.
+- WASI preview1 cannot run the thread-stack test; the functional graph and the
+  single-thread 32 KiB wasm-stack sign/verify path pass.
+- Apple targets are compile-only; no macOS runtime is available. ppc64
+  big-endian and Windows now have runtime evidence (qemu/Wine).
 - `cargo-call-stack` is incompatible with the current edition/toolchain;
   runtime stack tests are the stack evidence.
-- Mutation timeouts and equivalent/unobservable survivors are reported, not
-  rounded away.
+- Mutation timeouts and the 3 unobservable `Drop` survivors are reported, not
+  rounded away; the 27 expression equivalents are machine-checked by Z3.
 
 ## 6. Reproduce
 
@@ -292,6 +302,7 @@ CycloneDX SBOM:   vorb3, zero third-party components
 ./scripts/gate-deep.sh
 ./scripts/ctgrind.sh
 ./scripts/cross-runtime.sh
+./scripts/portable-runtime.sh
 ./scripts/wasm-runtime.sh
 ./scripts/reproducible.sh
 ./scripts/redteam.sh --all
@@ -299,4 +310,5 @@ CycloneDX SBOM:   vorb3, zero third-party components
 ./scripts/afl-campaign.sh 300
 python3 scripts/z3_selector.py
 python3 scripts/verify_poly.py
+python3 scripts/verify_mutation_equivalences.py
 ```

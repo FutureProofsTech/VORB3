@@ -211,19 +211,21 @@ A failure of any assumption is a release blocker.
   completed with zero crashes; the 72-hour
   soak remains deferred.
 - 32 KiB per-operation release stack for `sign_into`/`verify_bytes` on
-  x86_64, aarch64, s390x (big-endian), and i686; 64 KiB full sign with the
-  output buffer on the stack.
+  x86_64, aarch64, s390x (big-endian), ppc64 (big-endian), i686, Windows, and
+  WASI; 64 KiB full sign with the output buffer on the stack.
 - Canary guard regions survive signing; no 16-byte seed fragment appears in the
   signature; explicit wipe tests cover witness and key types.
-- Kani helper proofs: 11/11 (field encoding/additivity/multiplicative identities/zero/select, CT
-  equality/zero/select, masked GGM selection, byte wipe); Miri
-  CT/zeroization/profile/short BLAKE3/field/keys/signature pass under strict
-  provenance.
+- Kani helper proofs: 18/18 (field encoding/additivity/multiplicative
+  identities/zero/select, CT equality/zero/select/mask equivalence, masked GGM
+  selection, public-key parse/zero, signature length, byte and limb wipes);
+  Miri full sign+verify KAT, CT, zeroization, profile, BLAKE3, field, keys,
+  and signature pass under strict provenance.
 - Valgrind ctgrind: keygen/signing have no secret-dependent branch or address
   outside the public-key degeneracy check, which is a declassification of the
   public output.
-- Mutation: 494 mutants, 371 caught, 30 equivalent/unobservable misses, 84
-  unviable, 9 non-termination timeouts (92.5% of viable non-timeout mutants).
+- Mutation: 494 mutants, 371 caught, 27 Z3-checked expression equivalents plus
+  3 unobservable `Drop` wipes, 84 unviable, 9 non-termination timeouts (92.5%
+  of viable non-timeout mutants).
 - dudect/cachegrind/assembly evidence is in `docs/SIDE-CHANNEL.md` and
   `docs/PHASE7-ATTACK-REPORT.md`; the extended campaign is
   `docs/REDTEAM-CAMPAIGN.md`.

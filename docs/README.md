@@ -37,12 +37,14 @@ under the F-33 bound and is not used for a 128-bit claim.
 
 ```bash
 ./scripts/gate.sh          # fmt, clippy, tests, 32 KiB release stack, builds
-./scripts/gate-deep.sh     # 11 Kani harnesses + Miri (strict provenance)
+./scripts/gate-deep.sh     # 18 Kani harnesses + Miri (strict provenance)
 ./scripts/ctgrind.sh       # Valgrind secret-taint check for keygen/sign
 ./scripts/cross-runtime.sh # AArch64, s390x (big-endian), i686 test graphs
+./scripts/portable-runtime.sh # ppc64 big-endian + Windows/Wine test graphs
 ./scripts/wasm-runtime.sh  # wasm32-wasip1 functional graph under wasmtime
 ./scripts/reproducible.sh  # two clean rlib builds, byte compare
 ./scripts/afl-campaign.sh  # secondary AFL++ parse campaign
+python3 scripts/verify_mutation_equivalences.py  # Z3 mutation-equivalence checks
 ./scripts/redteam.sh --all # full local campaign (cross, wasm, fuzz, mutants)
 ```
 

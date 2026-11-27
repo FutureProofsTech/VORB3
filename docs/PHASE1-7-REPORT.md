@@ -14,7 +14,7 @@ SHA-256 c073c7e3f7b31192ba1932f9ed990b32bc4f321453347a23837803ef4fa9b68b
 ```
 
 > **Historical snapshot (2026-11-26).** The extended 2026-11-27 campaign
-> (11 Kani harnesses, 494 mutants, 28-case differential, cross-arch runtime,
+> (18 Kani harnesses, 494 mutants, 28-case differential, cross-arch runtime,
 > ctgrind, longer fuzz) is in `REDTEAM-CAMPAIGN.md`.
 
 ---

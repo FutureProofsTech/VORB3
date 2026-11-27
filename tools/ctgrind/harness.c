@@ -8,8 +8,8 @@
 #define SEED_LEN 36
 #define ENTROPY_LEN 32
 #define PK_LEN 72
-#define MAX_MSG_LEN 4096
-#define CASES 8
+#define MAX_MSG_LEN 8192
+#define CASES 12
 
 extern int vorb3_ct_keygen(const unsigned char *seed, unsigned char *public_key);
 extern int vorb3_ct_sign(const unsigned char *seed, const unsigned char *entropy,
@@ -24,7 +24,7 @@ static void fill(unsigned char *bytes, size_t len, uint32_t state) {
 }
 
 int main(void) {
-    static const size_t lengths[CASES] = {0, 1, 63, 64, 65, 257, 1024, 4096};
+    static const size_t lengths[CASES] = {0, 1, 63, 64, 65, 127, 128, 129, 257, 1024, 4096, 8192};
     unsigned char seed[SEED_LEN];
     unsigned char entropy[ENTROPY_LEN];
     unsigned char message[MAX_MSG_LEN];

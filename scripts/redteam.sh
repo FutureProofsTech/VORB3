@@ -21,14 +21,17 @@ printf '== exhaustive single-bit signature sweep ==\n'
 ./target/release/vorb3-attack bitflip
 
 printf '== timing ==\n'
-./target/release/vorb3-attack dudect 20000
-./target/release/vorb3-attack dudect-verify 20000
+./target/release/vorb3-attack dudect 50000
+./target/release/vorb3-attack dudect-verify 50000
 
 printf '== cachegrind/assembly ==\n'
 ./scripts/sidechannel.sh
 
 printf '== ctgrind ==\n'
 ./scripts/ctgrind.sh
+
+printf '== mutation equivalences (Z3) ==\n'
+python3 scripts/verify_mutation_equivalences.py
 
 case "${1:-}" in
   --fuzz)
@@ -44,6 +47,8 @@ case "${1:-}" in
   --cross)
     printf '== cross-architecture runtime ==\n'
     ./scripts/cross-runtime.sh
+    printf '== ppc64/Windows runtime ==\n'
+    ./scripts/portable-runtime.sh
     ;;
   --wasm)
     printf '== wasm32-wasip1 runtime ==\n'
@@ -56,6 +61,8 @@ case "${1:-}" in
     ./scripts/sbom.sh
     printf '== cross-architecture runtime ==\n'
     ./scripts/cross-runtime.sh
+    printf '== ppc64/Windows runtime ==\n'
+    ./scripts/portable-runtime.sh
     printf '== wasm32-wasip1 runtime ==\n'
     ./scripts/wasm-runtime.sh
     printf '== AFL++ parse campaign ==\n'

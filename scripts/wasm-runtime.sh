@@ -17,4 +17,10 @@ for test in attack bench_api blake3 field_diff field keys model_diff profile rai
   cargo test -p vorb3 --target wasm32-wasip1 --release --all-features \
     --test "$test" --offline
 done
-printf 'WASM-RUNTIME PASS (stack test not applicable on WASI preview1)\n'
+printf '== WASI 32 KiB wasm stack: sign+verify KAT ==\n'
+CARGO_TARGET_WASM32_WASIP1_RUNNER='wasmtime run --dir . -W max-wasm-stack=32768' \
+  cargo test -p vorb3 --target wasm32-wasip1 --release --all-features \
+  --test sign --offline
+
+printf 'WASM-RUNTIME PASS (thread-stack test not applicable on WASI preview1;\n'
+printf 'single-thread sign+verify passes with a 32 KiB wasm stack)\n'

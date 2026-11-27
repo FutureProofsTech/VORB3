@@ -25,7 +25,7 @@ pub fn wipe_u64s(limbs: &mut [u64; 5]) {
 
 #[cfg(kani)]
 mod kani_proofs {
-    use super::wipe_bytes;
+    use super::{wipe_bytes, wipe_u64s};
 
     #[kani::proof]
     fn wipe_bytes_clears_all_bytes() {
@@ -36,6 +36,13 @@ mod kani_proofs {
             assert_eq!(bytes[index], 0);
             index += 1;
         }
+    }
+
+    #[kani::proof]
+    fn wipe_u64s_clears_all_limbs() {
+        let mut limbs: [u64; 5] = kani::any();
+        wipe_u64s(&mut limbs);
+        assert_eq!(limbs, [0u64; 5]);
     }
 }
 

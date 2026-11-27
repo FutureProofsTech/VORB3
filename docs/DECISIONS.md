@@ -384,23 +384,28 @@ coverage, reproducible-build, and tool-hygiene evidence incomplete. The
 
 **Choice:**
 - Re-run the full 494-mutant inventory and classify every survivor; fix real
-  test gaps instead of rounding the score.
+  test gaps instead of rounding the score. Discharge the 27 expression
+  equivalents with 15 Z3 checks (`scripts/verify_mutation_equivalences.py`).
 - Expand the independent-model differential from 16 to 28 cases (0–8192 bytes)
   and run 4,096 field differential records plus 10,000 inverse checks.
-- Add 11 Kani helper proofs and strict-provenance Miri coverage for field, keys,
-  and signature; run 50,000-sample dudect for sign and verify.
+- Add 18 Kani helper proofs and strict-provenance Miri coverage through the
+  full sign+verify KAT, plus field, keys, and signature; run 50,000-sample
+  dudect for sign and verify.
 - Add Valgrind ctgrind for key generation/signing, with the public-key
   degeneracy check documented as a public-value declassification.
-- Run full test graphs on AArch64, big-endian s390x, and 32-bit i686; run the
-  functional WASI graph on wasmtime.
+- Run full test graphs on AArch64, big-endian s390x, big-endian ppc64, 32-bit
+  i686, and Windows/Wine; run the WASI graph and a 32 KiB wasm-stack sign/verify
+  check on wasmtime.
 - Run a 1-hour six-target libFuzzer campaign and a secondary AFL++ parse
   campaign; keep the 72-hour soak deferred.
 - Record a clean-build rlib hash, SBOM, dependency/unsafe scans, and size data.
 
-**Result:** mutation 371 caught / 30 missed / 84 unviable / 9 timeouts (92.5% of
-viable non-timeout mutants); coverage 100% functions / 99.90% lines; Kani 11/11;
-full cross-architecture stack target passes; ctgrind finds no secret-dependent
-branch/address outside the public-key declassification; rlib reproducible.
+**Result:** mutation 371 caught / 27 Z3-checked equivalents + 3 unobservable
+`Drop` / 84 unviable / 9 timeouts (92.5% of viable non-timeout mutants);
+coverage 100% functions / 99.90% lines; Kani 18/18; the 32 KiB stack target
+passes on x86_64, AArch64, s390x, ppc64, i686, Windows, and WASI; ctgrind finds
+no secret-dependent branch/address outside the public-key declassification;
+rlib reproducible.
 
 **Consequences:** the local evidence is materially stronger, but it is still
 not a security certificate. The full symbolic sign/verify proof, formal

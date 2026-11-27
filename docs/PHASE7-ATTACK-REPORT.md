@@ -6,7 +6,7 @@ deferred by direction and is not claimed.
 **No external audit is claimed.**
 
 > **Historical snapshot (2026-11-26).** The extended 2026-11-27 campaign
-> (11 Kani harnesses, 494 mutants, 28-case differential, cross-arch runtime,
+> (18 Kani harnesses, 494 mutants, 28-case differential, cross-arch runtime,
 > ctgrind, longer fuzz) is in `REDTEAM-CAMPAIGN.md`.
 
 ---

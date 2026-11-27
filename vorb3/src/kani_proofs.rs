@@ -6,8 +6,9 @@
 use crate::SIGNATURE_LEN;
 use crate::ct::{CtChoice, ct_eq_u64, ct_is_zero_u64};
 use crate::field::F288;
-use crate::keys::{ExpandedSecretKey, SecretKey};
+use crate::keys::{ExpandedSecretKey, PublicKey, SecretKey};
 use crate::sign::{sign_into, verify_bytes};
+use crate::signature::Signature;
 
 #[kani::proof]
 fn field_encoding_roundtrip() {
@@ -93,4 +94,68 @@ fn field_multiplicative_identities() {
     let value = F288::from_bytes(bytes);
     assert_eq!(value * F288::ONE, value);
     assert_eq!(value * F288::ZERO, F288::ZERO);
+}
+
+#[kani::proof]
+fn public_key_parse_roundtrip() {
+    let bytes: [u8; 72] = kani::any();
+    if let Ok(public) = PublicKey::from_bytes(bytes) {
+        assert_eq!(public.to_bytes(), bytes);
+    }
+}
+
+#[kani::proof]
+fn public_key_rejects_zero_component() {
+    let pt: [u8; 36] = kani::any();
+    let ct: [u8; 36] = kani::any();
+    let mut bytes = [0u8; 72];
+    bytes[..36].copy_from_slice(&pt);
+    bytes[36..].copy_from_slice(&ct);
+    let expected = F288::from_bytes(pt).is_zero() || F288::from_bytes(ct).is_zero();
+    assert_eq!(PublicKey::from_bytes(bytes).is_err(), expected);
+}
+
+#[kani::proof]
+fn select_mask_or_xor_equivalent() {
+    let mask: u8 = kani::any();
+    kani::assume(mask == 0 || mask == 0xFF);
+    let if_false: u64 = kani::any();
+    let if_true: u64 = kani::any();
+    let byte = u64::from(mask);
+    let mask = byte
+        | (byte << 8)
+        | (byte << 16)
+        | (byte << 24)
+        | (byte << 32)
+        | (byte << 40)
+        | (byte << 48)
+        | (byte << 56);
+    assert_eq!(
+        (if_false & !mask) | (if_true & mask),
+        (if_false & !mask) ^ (if_true & mask)
+    );
+}
+
+#[kani::proof]
+fn signature_parse_accepts_exact_length() {
+    let bytes: [u8; SIGNATURE_LEN] = kani::any();
+    assert!(Signature::from_bytes(&bytes).is_ok());
+}
+
+#[kani::proof]
+fn signature_parse_rejects_neighbor_lengths() {
+    let short = [0u8; SIGNATURE_LEN];
+    let long = [0u8; SIGNATURE_LEN + 1];
+    assert!(Signature::from_bytes(&short[..SIGNATURE_LEN - 1]).is_err());
+    assert!(Signature::from_bytes(&long).is_err());
+}
+
+#[kani::proof]
+fn signature_parse_rejects_all_other_lengths() {
+    let length: usize = kani::any();
+    kani::assume(length != SIGNATURE_LEN);
+    let data = [0u8; SIGNATURE_LEN + 1];
+    if let Some(input) = data.get(..length) {
+        assert!(Signature::from_bytes(input).is_err());
+    }
 }
