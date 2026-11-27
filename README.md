@@ -9,11 +9,9 @@
 [![no_std](https://img.shields.io/badge/no__std-yes-success.svg)](#no_std-and-embedded-use)
 [![Runtime dependencies](https://img.shields.io/badge/runtime%20deps-0-success.svg)](#dependency-policy)
 [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-critical.svg)](#safety-invariants)
-[![Status](https://img.shields.io/badge/status-local%20evidence-yellow.svg)](#security-status)
+[![Release](https://img.shields.io/badge/release-v1.3.0-blue.svg)](#release-history)
 
 </div>
-
-<p align="center"><sub><strong>Status:</strong> local release candidate · no external audit or certification · see <a href="#security-status">Security status</a>.</sub></p>
 
 ---
 
@@ -227,6 +225,12 @@ The byte-level layout is specified in
 
 ## Security status
 
+VORB3-SP1 is published as a locally verified release candidate. The design
+targets, conservative floors, and the evidence behind each claim are documented
+below and in [`docs/ASSURANCE.md`](docs/ASSURANCE.md). Independent review is
+part of the roadmap; the project does not describe local evidence as a
+certification.
+
 ### Design targets
 
 | Property | Target |
@@ -256,24 +260,22 @@ The 256-bit field profile is **not** used for a 128-bit claim: under the same
 accounting it is approximately 125-bit quantum. The frozen default profile is
 SP-288/35 at ≈140-bit quantum.
 
-### What this repository does and does not claim
+### Review status
 
-| Claim | Status |
+| Area | Status |
 |---|---|
-| Frozen wire format and KATs | **Yes** |
-| Byte-identical Rust/Python model differential | **Yes** |
-| Bounded Kani helper proofs | **Yes** — 18/18 default, 16/16 per compact pack |
-| Full symbolic Kani proof of sign/verify | **No** — open limitation |
-| Formal Rain-SP1 cryptanalytic proof | **No** — local dossier only |
-| ASan, Miri, memcheck, careful-mode checks | **Yes** — local |
-| Constant-time evidence (`dudect`, ctgrind, cachegrind, assembly) | **Yes** — evidence, not proof |
-| 72-hour / 1-billion-execution fuzz soak | **Deferred** |
-| Apple runtime execution | **Not covered locally** |
-| External audit | **None** |
-| NIST/FIPS certification | **None** |
-| Production readiness | **Not claimed** |
+| Wire format and KATs | Frozen and tested |
+| Model differentials and structured attacks | Passing |
+| Fuzzing, mutation, Kani, ASan, Miri, coverage | Local campaigns complete for the tested scope |
+| Cross-runtime and reproducible builds | Passing on the recorded matrix |
+| Full symbolic sign/verify proof | Open |
+| Independent external review | Planned |
+| 72-hour fuzz soak | Deferred |
 
----
+The detailed evidence behind these rows is in
+[`docs/ASSURANCE.md`](docs/ASSURANCE.md),
+[`docs/REDTEAM-CAMPAIGN.md`](docs/REDTEAM-CAMPAIGN.md), and
+[`docs/SIDE-CHANNEL.md`](docs/SIDE-CHANNEL.md).
 
 ## Assurance evidence
 
@@ -587,10 +589,10 @@ development records, not the current public API.
 
 ## Limitations and open work
 
-VORB3-SP1 is a candidate implementation with a deep local evidence base. It is
-not a finished, independently assured product. Open items:
+The current release is a candidate implementation with a broad local evidence
+base. The following items remain on the review roadmap:
 
-- **External audit:** none.
+- **External audit:** not yet performed.
 - **Full symbolic Kani sign/verify:** not tractable at the current budget; only
   helper-level proofs are claimed.
 - **Rain-SP1 proof:** local cryptanalysis and modeling, not a formal
@@ -601,8 +603,8 @@ not a finished, independently assured product. Open items:
 - **Apple runtime execution:** not part of the recorded cross-runtime set.
 - **Constant-time guarantees:** platform- and compiler-dependent; speculative
   execution and microarchitectural behavior are outside the formal claim.
-- **Production deployment:** not recommended without independent review of the
-  protocol, implementation, key management, and side-channel profile.
+- **Production deployment:** follow independent review and operational guidance
+  for the protocol, implementation, key management, and side-channel profile.
 
 If any of these change, the release notes and assurance matrix must be updated;
 the KATs and wire format must remain frozen unless a new profile is issued.
