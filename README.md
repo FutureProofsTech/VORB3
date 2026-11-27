@@ -13,12 +13,7 @@
 
 </div>
 
-> [!WARNING]
-> VORB3-SP1 is a locally verified cryptographic implementation, **not an
-> externally audited or certified product**. Do not deploy it where a
-> compromise would be unacceptable without independent cryptographic,
-> implementation, and side-channel review. The evidence in this repository is
-> local evidence; it is not a security certificate.
+<p align="center"><sub><strong>Status:</strong> local release candidate · no external audit or certification · see <a href="#security-status">Security status</a>.</sub></p>
 
 ---
 
