@@ -1,12 +1,11 @@
 # VORB3 Documentation Index
 
 **Status:** v1.3.0 release line — v1.0.0 SP-288/35 plus the optimized NIST Level 1+ and Level 3+ packs (2026-11-27).
-The production `no_std` crate is implemented and locally exercised; this is not
-a release certificate and no external audit is claimed.
+The `no_std` crate is implemented and locally exercised; this is not a
+release certificate and no external audit is claimed.
 
 | Document | Purpose |
 |---|---|
-| `../PLAN.md` | Master plan |
 | `PHASE0-REPORT.md` | Phase 0 findings, corrections, model results |
 | `VORB3-SPEC-1.md` | Frozen protocol/equation/wire specification |
 | `WIRE-BINDING.md` | Byte-by-byte binding table |
@@ -29,6 +28,9 @@ a release certificate and no external audit is claimed.
 | `sbom/vorb3.cdx.json` | CycloneDX SBOM snapshot (zero third-party components) |
 | `../model/vorb3_model.py` | Independent Python/py-blake3 model |
 | `../model/README.md` | Model usage and limitations |
+
+The master plan and drafting notes are kept local; historical phase reports
+remain below for traceability.
 
 ## Frozen profile
 

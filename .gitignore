@@ -13,3 +13,9 @@ fuzz/corpus/*/*
 fuzz/fuzz-*.log
 mutants.out/
 mutants.out.old/
+
+# Local planning artifact (kept out of the published tree).
+PLAN.md
+
+# Superseded architecture/planning draft (kept out of the published tree).
+project

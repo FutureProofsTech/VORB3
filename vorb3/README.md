@@ -1,23 +1,21 @@
 # vorb3
 
-Frozen profile: **SP-288/35** — GF(2^288), 35 GGM trees, depth 8, 15 rounds,
-13,672-byte signature.
+`vorb3` is the shipped `no_std` Rust library for VORB3-SP1, a compact
+post-quantum signature design built from Rain-SP1, GGM vector commitments, and
+QuickSilver.
 
-This is the production `no_std` library. Phase 1 (repository/toolchain/lint/
-zero-dependency gate), Phase 2 (constant-time/GF(2^288)), Phase 3
-(BLAKE3/WH512), Phase 4 (Rain-SP1), Phase 5 (GGM/Merkle/transcript), and Phase 6
-(QuickSilver/sign/verify) and the Phase 7 hardening/attack checkpoint are
-implemented. The 109,376-bit signature sweep, 1-hour fuzz, 32 KiB per-operation
-release stack target, canary scan, cachegrind/assembly evidence, and Kani helper
-proofs are recorded under `../docs/`. The optimization checkpoint is in
-`../docs/OPTIMIZATIONS.md`: Rain-SP1 encryption is 0.287 ms and sign is 7.07 ms
-for the 32-byte KAT message in the local benchmark. This is not a release
-certificate and no external audit is claimed.
+- Default profile: **SP-288/35**, 13,672-byte signatures, 72-byte public keys.
+- `nist1`: **SP-160/32** (NIST Level 1+), 7,976-byte signatures, 40-byte keys.
+- `nist3`: **SP-224/32** (NIST Level 3+), 10,296-byte signatures, 56-byte keys.
+- `bench-api`: internal measurement API, not a stable public interface.
 
-- No `std`, no `alloc`.
-- `forbid(unsafe_code)`.
-- Zero third-party runtime dependencies.
-- No demo binary.
+`nist1` and `nist3` are mutually exclusive; do not enable both.
 
-Specification: `../docs/VORB3-SPEC-1.md`.
-Reference model: `../model/vorb3_model.py`.
+The crate is `#![no_std]`, forbids unsafe code, has no allocator, and has zero
+third-party runtime dependencies. It is a locally verified candidate
+implementation, not an externally audited or certified product.
+
+See the repository root [`README.md`](../README.md) for architecture, security
+status, benchmarks, release history, and the full documentation map.
+
+License: **GPL-3.0-or-later**.
