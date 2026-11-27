@@ -133,7 +133,7 @@ flowchart TD
     Expand --> SK[sk and pt]
     SK --> Rain[Rain-SP1 encryption]
     Rain --> CT[ct]
-    SK --> PK[Public key: pt || ct]
+    SK --> PK["public key: pt ‖ ct"]
     CT --> PK
 
     PK --> Sign[Signing]
