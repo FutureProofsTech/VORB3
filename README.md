@@ -13,6 +13,8 @@
 
 </div>
 
+VORB3-SP1 is a compact post-quantum signature library built on Rain-SP1, GGM vector commitments, and the QuickSilver proof system. It targets three fixed-size profiles — SP-288/35, NIST Level 1+, and NIST Level 3+ — in a safe `no_std` Rust crate with no allocator and no runtime dependencies. The repository contains the frozen protocol, KATs, independent Python model, assurance evidence, benchmarks, and full white/yellow papers.
+
 ---
 
 ## Contents
