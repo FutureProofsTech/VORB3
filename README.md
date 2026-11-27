@@ -628,7 +628,7 @@ side-channel, or specification-related.
 
 **GNU General Public License v3.0 or later** (`GPL-3.0-or-later`).
 
-Copyright (C) 2026 the VORB3 contributors.
+Copyright (C) 2026 nul0 (FutureProofsTech).
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
