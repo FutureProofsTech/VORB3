@@ -22,6 +22,7 @@ a release certificate and no external audit is claimed.
 | `BENCHMARKS.md` | Full latency/throughput/memory/build benchmark report |
 | `OPTIMIZATIONS.md` | Field/BLAKE3/GGM optimization report and speedups |
 | `COVERAGE.md` | llvm-cov line/function/region coverage report |
+| `NIST-BENCHMARKS.md` | Full Level 1+ / Level 3+ benchmark tables and analysis |
 | `REDTEAM-CAMPAIGN.md` | Extended multi-tool red-team campaign |
 | `RELEASES.md` | Versioned release surface, hashes, and evidence |
 | `NIST-PACKS.md` | NIST Level 1+ / Level 3+ parameter packs and evidence |

@@ -107,8 +107,10 @@ Both packs have:
 - 32 KiB stack target in release;
 - byte-identical release rlibs across two clean builds;
 - cross-architecture and portable-runtime checks;
-- local release quick bench on the build host: sign ≈10.5 ms / verify ≈5.3 ms
-  (160/32), sign ≈17.0 ms / verify ≈5.6 ms (224/32).
+- full benchmark medians on the build host (25 samples): sign 9.60 ms /
+  verify 4.76 ms (160/32); sign 15.19 ms / verify 5.41 ms (224/32);
+- full benchmark report: `NIST-BENCHMARKS.md` (25 samples per benchmark,
+  same-session SP-288/35 comparison).
 
 The Valgrind `ctgrind` C-ABI harness remains baseline-only (fixed 288/35 buffer
 sizes); its wrapper is compiled out for `nist1`/`nist3` builds. The compact
@@ -129,6 +131,9 @@ VORB3_FEATURES=nist1 ./scripts/cross-runtime.sh
 VORB3_FEATURES=nist3 ./scripts/cross-runtime.sh
 VORB3_FEATURES=nist1 ./scripts/reproducible.sh
 VORB3_FEATURES=nist3 ./scripts/reproducible.sh
+
+VORB3_FEATURES=nist1 BENCH_CPU=4 ./scripts/bench.sh
+VORB3_FEATURES=nist3 BENCH_CPU=4 ./scripts/bench.sh
 
 FUZZ_FEATURES=nist1 FUZZ_TAG=n1 ./scripts/fuzz-campaign.sh 300
 FUZZ_FEATURES=nist3 FUZZ_TAG=n3 ./scripts/fuzz-campaign.sh 300

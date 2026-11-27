@@ -3,6 +3,9 @@
 **Status:** local measurement checkpoint. Machine- and compiler-dependent
 evidence, not a security proof and not an external audit.
 
+For the NIST Level 1+ and Level 3+ full reports, including a same-session
+SP-288/35 comparison, see `NIST-BENCHMARKS.md`.
+
 This is a curated snapshot. `scripts/bench.sh` regenerates the raw table into
 `target/benchmark-results.md` (or `$BENCH_OUT`); the analysis below is written
 against this snapshot and is not auto-updated.

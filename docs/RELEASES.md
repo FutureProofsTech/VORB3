@@ -1,5 +1,12 @@
 # VORB3 Releases
 
+## Benchmark addendum (post-v1.2.0)
+
+Full same-session benchmark tables for Level 1+ and Level 3+, with the
+SP-288/35 baseline for comparison, are in `NIST-BENCHMARKS.md`. Headline
+medians: Level 1+ sign 9.602 ms / verify 4.761 ms; Level 3+ sign 15.186 ms /
+verify 5.412 ms; baseline sign 6.364 ms / verify 5.676 ms.
+
 ## v1.2.0 — NIST Level 3+ (SP-224/32), 2026-11-27
 
 **Tag:** v1.2.0. The two profile features remain mutually exclusive.
