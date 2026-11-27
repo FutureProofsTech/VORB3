@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
-members = ["vorb3", "tools/attack", "tools/bench"]
-default-members = ["vorb3", "tools/attack", "tools/bench"]
+members = ["vorb3", "tools/attack", "tools/bench", "tools/ctgrind"]
+default-members = ["vorb3", "tools/attack", "tools/bench", "tools/ctgrind"]
 
 [workspace.package]
 version = "0.1.0"

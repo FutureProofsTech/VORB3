@@ -1,7 +1,7 @@
 # Side-Channel Measurement Report
 
-**Status:** optimized-build checkpoint. Evidence, not a formal constant-time
-proof.
+**Status:** optimized-build checkpoint (2026-11-27). Evidence, not a formal
+constant-time proof.
 **Profile:** SP-288/35.
 
 ## 1. Scope and method
@@ -11,8 +11,8 @@ proof.
 `tools/attack` provides two randomized-class tests:
 
 ```bash
-./target/release/vorb3-attack dudect 20000          # fixed key vs second key
-./target/release/vorb3-attack dudect-verify 20000   # valid vs corrupted signature
+./target/release/vorb3-attack dudect 50000          # fixed key vs second key
+./target/release/vorb3-attack dudect-verify 50000   # valid vs corrupted signature
 ```
 
 The harness warms both classes, selects the class with a xorshift bit (not a
@@ -24,7 +24,7 @@ t. The acceptance threshold is `|t| < 4.5`.
 At the optimized release rates (about 7.0 ms/signature and 6.3 ms/verification),
 50M samples per class would still require roughly 4 days for signing and 3.6
 days for verification on one core. That is not a meaningful local gate. The campaign
-uses 20,000 samples per test, which has useful power against moderate timing
+uses 50,000 samples per test, which has useful power against moderate timing
 shifts; it does not prove the absence of sub-percent leaks. The earlier plan's
 "50M" target is superseded by this measured, reproducible sample size.
 
@@ -57,30 +57,44 @@ value (loop counter, public length, slice bounds, public key validation, or the
 final accept/reject decision). LTO is disabled only to obtain readable
 per-function assembly.
 
+### 1.5 Valgrind ctgrind
+
+`scripts/ctgrind.sh` links the safe library into a C harness, marks the 36-byte
+seed and 32-byte entropy as undefined, then calls key generation and signing for
+eight message lengths (0 to 4096 bytes). Memcheck reports any conditional jump
+or memory address that depends on those undefined bytes.
+
+```bash
+./scripts/ctgrind.sh
+```
+
+This complements dudect: ctgrind is not statistical and does not require timing
+stability. It is still dynamic, so it covers only the exercised paths.
+
 ## 2. Results
 
 ### 2.1 Timing
 
-Signing (`dudect 20000`, fixed key vs second key):
+Signing (`dudect 50000`, fixed key vs second key):
 
 ```text
-n = 20,000
-mean A = 7,012,362 ns
-mean B = 7,013,110 ns
-Welch t = -0.251
+n = 50,000
+mean A = 6995847 ns
+mean B = 6998602 ns
+Welch t = -1.383
 ```
 
-Verification (`dudect-verify 20000`, valid vs corrupted signature):
+Verification (`dudect-verify 50000`, valid vs corrupted signature):
 
 ```text
-n = 20,000
-mean A = 6,287,703 ns
-mean B = 6,288,356 ns
-Welch t = -0.266
+n = 50,000
+mean A = 6275957 ns
+mean B = 6275605 ns
+Welch t = 0.552
 ```
 
-Both are below `|t| < 4.5`. The optimized run took 2m20s for signing and 2m06s
-for verification. The same campaign was run on the final optimized binary.
+Both are below `|t| < 4.5`. The run was made on the final optimized binary after
+the fuzz campaigns had stopped.
 
 ### 2.2 Cachegrind
 
@@ -111,6 +125,27 @@ key validation, or the final accept/reject decision. `hidden_opening` consumes
 the hidden bit only through masked shifts/selection. This is a manual audit,
 not a formal verifier.
 
+### 2.4 ctgrind
+
+The raw run reports exactly four unique conditional sites, all at
+`PublicKey::from_bytes` (`keys.rs:25`) via `from_secret`/`public_key` or
+`public_key_from_parts`/`sign_into`. That check rejects a degenerate derived
+public key. The public key is a public output (and in signing is already known
+to the verifier), so this is a declassification point, not a leak of the seed:
+
+```text
+raw conditional reports: 4 total, 4 at PublicKey::from_bytes
+```
+
+With those four call stacks suppressed, Memcheck exits clean:
+
+```text
+CTGRIND PASS: no other secret-dependent branch or address
+```
+
+No secret-dependent branch or address was found in Rain, GGM, BLAKE3, the
+transcript, wire filling, or proof assembly for the exercised lengths.
+
 ## 3. Interpretation limits
 
 - dudect tests are statistical; a non-significant t does not prove
@@ -118,4 +153,7 @@ not a formal verifier.
 - Cachegrind counts are deterministic for the instrumented binary, not a
   hardware side-channel measurement.
 - Assembly review is manual; the audit script is a review aid, not a verifier.
+- ctgrind is dynamic and path-limited; it does not prove absence of all
+  secret-dependent behaviour.
+- The derived-public-key degeneracy check is a documented public-value branch.
 - No power/EM measurement, no formal constant-time proof, no external audit.

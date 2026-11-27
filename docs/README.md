@@ -1,6 +1,6 @@
 # VORB3 Documentation Index
 
-**Status:** Phase 7 local implementation/attack checkpoint (2026-11-26).
+**Status:** Phase 7 local implementation/attack checkpoint (2026-11-27).
 The production `no_std` crate is implemented and locally exercised; this is not
 a release certificate and no external audit is claimed.
 
@@ -13,7 +13,7 @@ a release certificate and no external audit is claimed.
 | `THREAT-MODEL.md` | Assets, adversaries, trust boundaries |
 | `ASSURANCE.md` | Requirement → evidence matrix and Phase 7 status |
 | `SECURITY-CASE.md` | Security target, F-33 union bound, assumptions |
-| `DECISIONS.md` | ADRs D1–D23 and findings F-01–F-33 |
+| `DECISIONS.md` | ADRs D1–D24 and findings F-01–F-33 |
 | `PHASE0-REDTEAM.md` | Internal adversarial review |
 | `PHASE1-7-REPORT.md` | Phase 1–7 implementation and evidence checkpoint |
 | `PHASE7-ATTACK-REPORT.md` | Bit-flip, fuzz, stack, Kani, cachegrind, assembly |
@@ -23,6 +23,7 @@ a release certificate and no external audit is claimed.
 | `OPTIMIZATIONS.md` | Field/BLAKE3/GGM optimization report and speedups |
 | `COVERAGE.md` | llvm-cov line/function/region coverage report |
 | `REDTEAM-CAMPAIGN.md` | Extended multi-tool red-team campaign |
+| `sbom/vorb3.cdx.json` | CycloneDX SBOM snapshot (zero third-party components) |
 | `../model/vorb3_model.py` | Independent Python/py-blake3 model |
 | `../model/README.md` | Model usage and limitations |
 
@@ -35,11 +36,18 @@ under the F-33 bound and is not used for a 128-bit claim.
 ## Local gates
 
 ```bash
-./scripts/gate.sh        # fmt, clippy, tests, 32 KiB release stack, builds
-./scripts/gate-deep.sh   # Kani helper proofs + Miri
+./scripts/gate.sh          # fmt, clippy, tests, 32 KiB release stack, builds
+./scripts/gate-deep.sh     # 11 Kani harnesses + Miri (strict provenance)
+./scripts/ctgrind.sh       # Valgrind secret-taint check for keygen/sign
+./scripts/cross-runtime.sh # AArch64, s390x (big-endian), i686 test graphs
+./scripts/wasm-runtime.sh  # wasm32-wasip1 functional graph under wasmtime
+./scripts/reproducible.sh  # two clean rlib builds, byte compare
+./scripts/afl-campaign.sh  # secondary AFL++ parse campaign
+./scripts/redteam.sh --all # full local campaign (cross, wasm, fuzz, mutants)
 ```
 
 Deferred by direction: the 72-hour / 1-billion-execution fuzz soak. Open release
-gates include full symbolic Kani sign/verify, full Rain-SP1 cryptanalysis,
-cross-architecture KATs, reproducible-build comparison, coverage/mutation
-scores, and external review.
+gates remain full symbolic Kani sign/verify, full Rain-SP1 cryptanalysis, and
+external review. Cross-architecture runtime KATs, reproducible builds,
+coverage, and mutation scores are now recorded in
+`REDTEAM-CAMPAIGN.md`.

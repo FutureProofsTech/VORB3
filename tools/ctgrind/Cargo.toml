@@ -1,0 +1,13 @@
+[package]
+name = "vorb3-ctgrind"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license.workspace = true
+
+[lib]
+name = "vorb3_ctgrind"
+crate-type = ["staticlib"]
+
+[dependencies]
+vorb3 = { path = "../../vorb3" }

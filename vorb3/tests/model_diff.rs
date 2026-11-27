@@ -1,7 +1,7 @@
 //! Multi-case differential test against the independent Python model.
 //!
-//! The KAT file contains 16 records with different seeds, entropy, and message
-//! lengths from 0 to 4096 bytes. Rust signing must reproduce every signature
+//! The KAT file contains 28 records with different seeds, entropy, and message
+//! lengths from 0 to 8192 bytes. Rust signing must reproduce every signature
 //! byte-for-byte, and verification must accept it.
 
 use vorb3::SIGNATURE_LEN;
@@ -46,7 +46,7 @@ fn multi_case_python_differential() {
     let magic = cursor.take(MAGIC.len()).unwrap_or(&[]);
     assert_eq!(magic, MAGIC);
     let count = cursor.u16().unwrap_or(0);
-    assert_eq!(count, 16);
+    assert_eq!(count, 28);
     for case in 0..count {
         let seed = cursor.array::<36>().unwrap_or([0u8; 36]);
         let pk_bytes = cursor.array::<72>().unwrap_or([0u8; 72]);

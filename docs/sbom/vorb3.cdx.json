@@ -1,0 +1,56 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.3",
+  "version": 1,
+  "serialNumber": "urn:uuid:bfda777f-89a1-4727-9b48-a6fbd2f0c1fd",
+  "metadata": {
+    "timestamp": "2026-11-26T23:44:42.542112863Z",
+    "tools": [
+      {
+        "vendor": "CycloneDX",
+        "name": "cargo-cyclonedx",
+        "version": "0.5.10"
+      }
+    ],
+    "component": {
+      "type": "library",
+      "bom-ref": "path+file:///vorb3/vorb3#0.1.0",
+      "name": "vorb3",
+      "version": "0.1.0",
+      "description": "VORB3-SP1 post-quantum signature library (SP-288/35)",
+      "scope": "required",
+      "licenses": [
+        {
+          "expression": "GPL-3.0-or-later"
+        }
+      ],
+      "purl": "pkg:cargo/vorb3@0.1.0?download_url=file://.",
+      "components": [
+        {
+          "type": "library",
+          "bom-ref": "path+file:///vorb3/vorb3#0.1.0 bin-target-0",
+          "name": "vorb3",
+          "version": "0.1.0",
+          "licenses": [
+            {
+              "expression": "GPL-3.0-or-later"
+            }
+          ],
+          "purl": "pkg:cargo/vorb3@0.1.0?download_url=file://.#src/lib.rs"
+        }
+      ]
+    },
+    "properties": [
+      {
+        "name": "cdx:rustc:sbom:target:triple",
+        "value": "x86_64-unknown-linux-gnu"
+      }
+    ]
+  },
+  "components": [],
+  "dependencies": [
+    {
+      "ref": "path+file:///vorb3/vorb3#0.1.0"
+    }
+  ]
+}

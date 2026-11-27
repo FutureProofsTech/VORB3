@@ -1,7 +1,8 @@
 # VORB3-SP1 — Security Case
 
-**Status:** Phase 7 local implementation checkpoint (2026-11-26). **Not a proof
-of computational security and not an external audit.**
+**Status:** Phase 7 local implementation checkpoint + extended campaign
+(2026-11-27). **Not a proof of computational security and not an external
+audit.**
 **Scope:** SP-128/SP-128+/SP-160 parameter families; the equations are shared.
 The implementation target is the frozen SP-288/35 profile.
 
@@ -205,16 +206,27 @@ A failure of any assumption is a release blocker.
 - Signature KAT is byte-identical to the independent Python model.
 - 109,376 single-bit mutations rejected; structural truncation/wrong-key/
   wrong-message/all-zero tests rejected.
-- 1-hour fuzz: 207,402 executions, zero crashes; 72-hour soak deferred.
-- 32 KiB per-operation release stack for `sign_into`/`verify_bytes`; 64 KiB
-  full sign with the output buffer on the stack.
+- 77.8M executions in the 10-minute six-target fuzz campaign, zero crashes;
+  an extended 1-hour campaign (327,716,350 executions; 405,581,569 total) also
+  completed with zero crashes; the 72-hour
+  soak remains deferred.
+- 32 KiB per-operation release stack for `sign_into`/`verify_bytes` on
+  x86_64, aarch64, s390x (big-endian), and i686; 64 KiB full sign with the
+  output buffer on the stack.
 - Canary guard regions survive signing; no 16-byte seed fragment appears in the
   signature; explicit wipe tests cover witness and key types.
-- Kani helper proofs: 6/6 (field encoding/additivity, CT equality/select,
-  masked GGM selection, byte wipe); Miri CT/zeroization/profile/short BLAKE3
-  pass.
+- Kani helper proofs: 11/11 (field encoding/additivity/multiplicative identities/zero/select, CT
+  equality/zero/select, masked GGM selection, byte wipe); Miri
+  CT/zeroization/profile/short BLAKE3/field/keys/signature pass under strict
+  provenance.
+- Valgrind ctgrind: keygen/signing have no secret-dependent branch or address
+  outside the public-key degeneracy check, which is a declassification of the
+  public output.
+- Mutation: 494 mutants, 371 caught, 30 equivalent/unobservable misses, 84
+  unviable, 9 non-termination timeouts (92.5% of viable non-timeout mutants).
 - dudect/cachegrind/assembly evidence is in `docs/SIDE-CHANNEL.md` and
-  `docs/PHASE7-ATTACK-REPORT.md`.
+  `docs/PHASE7-ATTACK-REPORT.md`; the extended campaign is
+  `docs/REDTEAM-CAMPAIGN.md`.
 - Rain-SP1 local analysis is in `docs/RAIN-CRYPTANALYSIS.md`.
 
 ## 7. What is not proved
@@ -227,8 +239,6 @@ A failure of any assumption is a release blocker.
 - 72-hour / 1-billion-execution fuzzing.
 - A machine-checked QuickSilver soundness/ZK proof for this exact circuit.
 - WH512 combiner security beyond the random-oracle-style assumption.
-- Side-channel immunity or absolute zeroization.
-- Implementation correctness (no Rust code yet).
 - External audit.
 
 The security case is deliberately conservative. The plan is to **earn** the

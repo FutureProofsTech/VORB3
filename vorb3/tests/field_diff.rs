@@ -24,14 +24,14 @@ fn differential_field_vectors() {
         assert_eq!(a.inverse(), F288::from_bytes(*inverse));
         checked += 1;
     }
-    assert_eq!(checked, 512);
+    assert_eq!(checked, 4096);
 }
 
 #[test]
 fn field_inverse_self_consistency() {
     // Deterministic splitmix64 fill; no external RNG.
     let mut state = 0x9E37_79B9_7F4A_7C15u64;
-    for _ in 0..2_000 {
+    for _ in 0..10_000 {
         let mut bytes = [0u8; WORD_LEN];
         for chunk in bytes.as_chunks_mut::<8>().0.iter_mut() {
             state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);

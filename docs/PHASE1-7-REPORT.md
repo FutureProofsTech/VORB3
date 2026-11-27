@@ -13,6 +13,10 @@ The end-to-end signature KAT is byte-identical to the independent Python model:
 SHA-256 c073c7e3f7b31192ba1932f9ed990b32bc4f321453347a23837803ef4fa9b68b
 ```
 
+> **Historical snapshot (2026-11-26).** The extended 2026-11-27 campaign
+> (11 Kani harnesses, 494 mutants, 28-case differential, cross-arch runtime,
+> ctgrind, longer fuzz) is in `REDTEAM-CAMPAIGN.md`.
+
 ---
 
 ## 1. Phase 0 freeze
@@ -223,8 +227,9 @@ python3 scripts/asm_audit.py
 - 72-hour / 1-billion-execution fuzz soak is deferred.
 - Absolute zeroization of registers/compiler temporaries cannot be proved in
   safe Rust; the wipes are best-effort with `black_box` barriers.
-- Cross-architecture KATs, reproducible-build comparison, coverage/mutation
-  scores, and external review are still open release gates.
+- Cross-architecture runtime KATs, reproducible-build comparison, and
+  coverage/mutation scores were added in the 2026-11-27 extended campaign
+  (`REDTEAM-CAMPAIGN.md`); external review remains an open release gate.
 
 ## 11. Honest statement
 

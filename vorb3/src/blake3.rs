@@ -659,13 +659,22 @@ fn wh512_inner(data: &[u8]) -> [u8; 64] {
 
 #[cfg(test)]
 mod tests {
-    use super::{Hasher, IV};
+    use super::{Hasher, IV, compress};
 
     #[test]
     fn push_cv_zero_stack_defensive_merge() {
         let mut hasher = Hasher::new(IV, 0);
         hasher.push_cv([7u32; 8], 2);
         assert_eq!(hasher.stack_len, 1);
+    }
+
+    #[test]
+    fn counter_high_word_changes_compression() {
+        let cv = IV;
+        let block = [0x0123_4567u32; 16];
+        let low = compress(cv, block, 0, 64, 0);
+        let high = compress(cv, block, 1u64 << 32, 64, 0);
+        assert_ne!(low, high);
     }
 }
 

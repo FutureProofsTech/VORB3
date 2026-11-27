@@ -502,4 +502,29 @@ mod tests {
         assert_eq!(copath, CP);
         assert_eq!(reconstruct_root(COM, &copath, 7, 42, &salt, &pk_hash), ROOT);
     }
+
+    #[test]
+    fn all_hidden_leaves_open_and_reconstruct() {
+        let mut root_seed = [0u8; 36];
+        for (index, byte) in root_seed.iter_mut().enumerate() {
+            *byte = u8::try_from(index.wrapping_mul(7).wrapping_add(3) & 0xFF).unwrap_or(0);
+        }
+        let mut salt = [0u8; 64];
+        for (index, byte) in salt.iter_mut().enumerate() {
+            *byte = u8::try_from(index.wrapping_mul(3) & 0xFF).unwrap_or(0);
+        }
+        let mut pk_hash = [0u8; 64];
+        for (index, byte) in pk_hash.iter_mut().enumerate() {
+            *byte = u8::try_from(index.wrapping_mul(5).wrapping_add(1) & 0xFF).unwrap_or(0);
+        }
+        let root = tree_root(root_seed, 3, &salt, &pk_hash);
+        for alpha in 0..=255u8 {
+            let (_share, commitment, copath) = hidden_opening(root_seed, 3, alpha, &salt, &pk_hash);
+            assert_eq!(
+                reconstruct_root(commitment, &copath, 3, alpha, &salt, &pk_hash),
+                root,
+                "alpha={alpha}"
+            );
+        }
+    }
 }

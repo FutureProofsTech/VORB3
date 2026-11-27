@@ -1,0 +1,15 @@
+{
+   vorb3-public-key-degeneracy-keygen
+   Memcheck:Cond
+   fun:from_bytes
+   fun:from_secret
+   fun:public_key
+   ...
+}
+{
+   vorb3-public-key-degeneracy-sign
+   Memcheck:Cond
+   fun:from_bytes
+   fun:public_key_from_parts
+   ...
+}

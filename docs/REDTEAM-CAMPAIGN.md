@@ -1,256 +1,302 @@
 # VORB3 — Extended Local Red-Team Campaign
 
-**Status:** in progress (2026-11-27). No external audit is claimed.
+**Status:** final local campaign (2026-11-27). No external audit is claimed.
 **Profile:** SP-288/35, 13,672-byte signature.
 **Rule:** every result is labelled proved, tested, or assumed.
 
 ## 1. Scope
 
-This campaign extends the Phase 7 testing with every locally available tool:
+This campaign extends the Phase 7 checkpoint with every locally applicable
+tool: exhaustive mutation, structured attacks, a 28-case independent-model
+differential, two coverage-guided fuzz engines, full mutation inventory,
+expanded formal and dynamic checks, constant-time taint tracking, coverage,
+cross-architecture execution, reproducibility, and supply-chain scans.
 
-- exhaustive signature mutation and structured envelope attacks;
-- independent Python-model differential signing (16 cases);
-- multi-target coverage-guided fuzzing;
-- mutation testing (test-suite quality);
-- ASan / Miri / Kani;
-- coverage gates;
-- cache/instruction and timing measurements;
-- dependency/license/security scans;
-- cross-architecture build/run checks where tooling exists;
-- reproducibility and binary-size checks.
+The result is local evidence for a candidate profile, not a security
+certificate. Unavailable or non-applicable tools are listed in §2; the remaining
+release limits are in §5.
 
-Tools **not available or not applicable** are recorded explicitly rather than
-silently skipped.
+## 2. Environment and tool inventory
 
-## 2. Environment
+- Host: Intel i5-14400F, 16 threads, 31 GiB RAM, Linux 7.2.9.
+- Rust: 1.99.0 stable and nightly 1.99.0.
+- Cross sysroots: Fedora `sysroot-aarch64-fc44-glibc`,
+  `sysroot-s390x-fc44-glibc`, native i686 multilib; QEMU user mode.
+- WASI: wasmtime 51.0.0 and `wasm32-wasip1`.
 
-- Host: Intel i5-14400F, 16 threads, Linux 7.2.9.
-- Rust: 1.99.0 stable and nightly 1.99.0 (for Miri/fuzz/sanitizers).
-- cargo-llvm-cov 0.9.1, cargo-fuzz, cargo-mutants 27.1.0,
-  cargo-nextest 0.9.151, cargo-audit 0.22.2, cargo-deny 0.20.2,
-  Kani, Miri, Valgrind, perf, Z3/SymPy.
-- AArch64 cross linker and qemu-aarch64 present.
-- AFL++ binary present, but no Rust/AFL instrumentation or AFL QEMU trace;
-  libFuzzer is the coverage-guided fuzzer used here.
+| Tool | Status | Use |
+|---|---|---|
+| `cargo-fuzz` / libFuzzer | used | six ASan targets, bounded campaigns |
+| AFL++ via `cargo-afl` | used | secondary parse campaign |
+| `cargo-mutants` | used | full 494-mutant inventory |
+| Kani | used | 11 bounded proofs |
+| Miri | used | UB/aliasing/provenance checks |
+| Valgrind memcheck | used | leaks/uninitialised memory, ctgrind |
+| Valgrind cachegrind | used | cache/branch comparison |
+| Z3 + SymPy | used | toy selector UNSAT, polynomial irreducibility |
+| `cargo-llvm-cov` | used | line/function/region coverage |
+| ASan | used | full test graph |
+| `cargo-careful` | used | extra runtime UB checks |
+| `cargo-hack` | used | feature powerset |
+| `cargo-audit`, `cargo-deny` | used | advisories, licenses, bans, sources |
+| `cargo-geiger`, `cargo-machete`, `cargo-outdated` | used | unsafe/dependency hygiene |
+| `cargo-bloat`, `cargo-llvm-lines` | used | size/monomorphisation inventory |
+| `cargo-cyclonedx` | used | SBOM snapshot |
+| QEMU + cross gcc | used | AArch64, s390x, i686 runtime graphs |
+| wasmtime | used | WASI functional graph |
+| `cargo-call-stack` | not used | requires nightly-2023-11-13; edition 2024; runtime stack tests used instead |
+| Creusot | installed, not applied | no Creusot annotations; Kani/Z3 cover the selected helpers |
+| `cargo-semver-checks`, `cargo-public-api`, `cargo-udeps`, `cargo-vet` | not applicable | no published API baseline; machete covers unused deps; audit+deny cover supply chain |
+| MSan/TSan | not used | TSan N/A (no threads); MSan needs instrumented std/libc; Miri/Valgrind cover uninitialised reads |
+| 72-hour / 1-billion fuzz soak | deferred | bounded campaigns recorded here |
 
-## 3. Completed evidence
+## 3. Evidence
 
-### 3.1 Exhaustive single-bit signature sweep
+### 3.1 Signature mutation and structured attacks
 
 ```text
-13,672 bytes × 8 = 109,376 mutations
+13,672 bytes × 8 = 109,376 single-bit mutations
 accepted: 0
 wall: 1m41s on the optimized binary (16 workers)
 ```
 
-Every single-bit mutation of the KAT signature is rejected.
+`vorb3/tests/redteam.rs` also rejects replay under a wrong message/key,
+signatures from a second key, zero/0xFF damage to salt, h2, wire_d, U, V,
+out_tag, copath, and hidden commitments, U/V swaps, duplicated tree material,
+truncation, trailing bytes, empty/all-zero signatures, and sampled field/key
+bit flips.
 
-### 3.2 Structured envelope attacks
+### 3.2 Independent-model differential
 
-`vorb3/tests/redteam.rs`:
-
-- replay under wrong message/key;
-- signatures made with a second key and nonzero entropy;
-- zero/0xFF damage to salt, h2, wire_d, U, V, out_tag, copath, and hidden
-  commitments;
-- U/V swap, duplicate copath/hidden commitment from another tree;
-- sampled bit flips in every envelope region and public-key bits;
-- truncation/trailing/empty/all-zero signature and tree-count assertion.
-
-All rejected.
-
-### 3.3 Independent-model differential
-
-`kat/sign_diff_sp288_35.bin` contains 16 cases generated by
-`model/vorb3_model.py` with different seeds, entropy, and message lengths
-(0, 1, 7, 31, 32, 33, 63, 64, 127, 255, 1024, 4096, 17, 100, 257, 2048).
-`vorb3/tests/model_diff.rs` reproduces every signature byte-for-byte and
-verifies it under the model public key.
-
-Result: **PASS, 16/16**.
-
-### 3.4 Coverage
-
-- `vorb3` default features: **100.00% functions (167/167)**,
-  **99.89% lines (1789/1791)**, 98.71% regions.
-- `vorb3` all features: **100.00% functions (193/193)**,
-  **99.90% lines (2012/2014)**, 98.79% regions.
-- The two residual line entries are LLVM closing-brace/region artifacts;
-  all protocol functions are executed.
-
-### 3.5 Static/dynamic assurance
-
-| Tool | Result |
-|---|---|
-| Kani | 6/6 helper harnesses pass |
-| Miri | CT, zeroization, profile, short BLAKE3 pass |
-| cargo-nextest | see §3.7 |
-| cargo-audit | 0 vulnerabilities in 3 locked crates |
-| cargo-deny | advisories, bans, licenses, sources all pass |
-| ASan | see §3.7 |
-| Valgrind memcheck | see §3.7 |
-| Z3 toy selector proof | UNSAT counterexample; `scripts/z3_selector.py` |
-
-### 3.6 Performance counters
-
-`perf stat` over the fixed `tools/attack bench` workload:
+`kat/sign_diff_sp288_35.bin` contains **28** cases generated by
+`model/vorb3_model.py` with different seeds, entropy, and message lengths:
 
 ```text
-cycles:        546,088,346
-instructions: 2,025,210,695   (IPC ≈ 3.71)
-branches:      31,511,749
-branch misses:     65,417
-wall:          0.134 s (10 signs + 10 verifies)
+0, 1, 7, 31, 32, 33, 63, 64, 65, 127, 128, 129, 255, 256, 257,
+511, 512, 513, 1023, 1024, 1025, 2047, 3000, 4095, 4096, 4097, 8191, 8192
 ```
 
-Cachegrind two-key comparison and the optimized timing campaign are in
-`SIDE-CHANNEL.md`.
+Rust reproduces every signature byte-for-byte and verifies it under the model
+public key. Result: **PASS, 28/28**. The field differential file contains
+4,096 independent Python records and 10,000 random inverse self-consistency
+values.
 
-### 3.7 Fuzzing, mutation, sanitizer and portability
+### 3.3 Coverage-guided fuzzing
 
-#### Nextest
+#### libFuzzer (primary, ASan)
 
-`cargo nextest run --workspace --all-features`:
-
-```text
-44 tests run: 44 passed, 0 skipped (2.218 s)
-```
-
-#### ASan
-
-`RUSTFLAGS=-Zsanitizer=address cargo +nightly test -p vorb3 --all-features`
-passed the full library test graph (unit + integration, including the 32/64 KiB
-stack tests under a raised coverage override). No ASan errors.
-
-#### Valgrind memcheck
-
-`vorb3-attack bench` under memcheck:
-
-```text
-ERROR SUMMARY: 0 errors from 0 contexts
-definitely lost: 0 bytes
-indirectly lost: 0 bytes
-possibly lost:   0 bytes
-still reachable: 548 bytes (Rust std runtime)
-```
-
-#### Cross-compilation
-
-Release library builds pass for:
-
-```text
-aarch64-unknown-linux-gnu
-riscv32imac-unknown-none-elf
-thumbv7em-none-eabihf
-```
-
-AArch64 test execution is blocked locally by missing AArch64 glibc sysroot
-(`Scrt1.o`, `-lc`); the cross-compiled library itself builds successfully.
-
-#### Reproducibility
-
-Two clean release builds of the default library with the same
-`SOURCE_DATE_EPOCH` and `CARGO_INCREMENTAL=0` produced byte-identical rlibs:
-
-```text
-sha256 1c70ab8d7c46b6084fa77237c234101c193e32b25759ad3936de4caeeb6d2610
-```
-
-#### Dependency/license scans
-
-```text
-cargo audit: 0 vulnerabilities in 3 locked crates
-cargo deny: advisories ok, bans ok, licenses ok, sources ok
-```
-
-### 3.8 Multi-target fuzzing
-
-`cargo fuzz` (libFuzzer, ASan enabled by default), 600 s per target, six
-targets in parallel:
+Six targets, 600 s each in parallel, on the optimized binary:
 
 | Target | Executions | Crashes | Artifacts |
 |---|---:|---:|---:|
-| `verify` (fixed KAT key/message) | 7,674 | 0 | 0 |
-| `verify_any` (arbitrary key/signature) | 7,237 | 0 | 0 |
-| `sign` (arbitrary seed/entropy/message + self-verify) | 2,262 | 0 | 0 |
-| `parse` (signature/public-key parsing) | 76,716,224 | 0 | 0 |
-| `field` (laws, square, inverse) | 1,087,196 | 0 | 0 |
-| `rain` (determinism, selector) | 44,626 | 0 | 0 |
+| `parse` | 76,716,224 | 0 | 0 |
+| `field` | 1,087,196 | 0 | 0 |
+| `rain` | 44,626 | 0 | 0 |
+| `sign` | 2,262 | 0 | 0 |
+| `verify` | 7,674 | 0 | 0 |
+| `verify_any` | 7,237 | 0 | 0 |
 | **Total** | **77,865,219** | **0** | **0** |
 
-The earlier 1-hour fixed-signature campaign (207,402 executions) was on the
-pre-optimization binary; this campaign is on the optimized binary. No corpus
-input was accepted as a non-KAT signature in `verify`.
+An extended 1-hour campaign with `-use_value_profile=1` was then run:
+**327,716,350** executions, **0** crashes, **0** artifacts. Combined with the
+10-minute campaign, the libFuzzer total is **405,581,569** executions.
 
-### 3.9 Mutation testing
+No corpus input was accepted as a non-KAT signature in `verify`.
 
-Full `cargo-mutants` inventory for `vorb3` with cfg-test/benchmark-only
-functions excluded: **494 mutants**. Bounded per-mutant timeout: 8 s, four
-shards in parallel.
+#### AFL++ (secondary)
+
+A temporary `afl` harness around `Signature::from_bytes` / `PublicKey::from_bytes`
+was built with the AFL++ LLVM plugins and seeded from the libFuzzer parse
+corpus. The 5-minute run executed **9,963,205** inputs with **0** saved
+crashes and **132** corpus paths. This is engine diversity, not an
+independent memory-safety proof; the libFuzzer targets carry ASan.
+
+### 3.4 Mutation testing
+
+Full `cargo-mutants` inventory for `vorb3` (test/benchmark-only functions
+excluded): **494 mutants**.
 
 | Outcome | Count |
 |---|---:|
-| Caught | 346 |
-| Missed | 42 |
+| Caught | **371** |
+| Missed | **30** |
 | Unviable | 84 |
-| Timeout | 22 |
-| **Mutation score (caught/(caught+missed))** | **89.2%** |
+| Timeout | 9 |
+| **Score (caught/(caught+missed))** | **92.5%** |
 
-The initial survivors clustered in:
+The 30 misses are classified as:
 
-- constant-time high-byte/high-limb mask lanes (`CtChoice::select_u64`,
-  `F288::ct_is_zero`) — a **real test gap**;
-- BLAKE3 flag/range mutations that are equivalent because mode/CHUNK bits are
-  disjoint or boundary comparisons coincide;
-- `SecretKey`/`RainWitness` `Drop` removal, which is not observable safely
-  after drop in safe Rust (zeroization remains best-effort with explicit wipe
-  tests);
-- transcript output-boundary `<` vs `<=` at the exact 64-byte boundary.
+- **27 equivalent mutants**: OR-vs-XOR on disjoint masks (`CtChoice::select_u8`,
+  `select_u64`, `spread64`, BLAKE3 flag lanes), `<` vs `<=` where equality
+  yields the same `take`, a shift by zero, and a redundant ROOT-flag OR that
+  `root_bytes` re-adds.
+- **3 unobservable `Drop` wipes**: safe Rust cannot inspect memory after drop;
+  explicit wipe/canary tests remain the available evidence.
 
-The CT/limb gap was closed with new high-lane/per-limb tests. The targeted
-`ct.rs` + `field.rs` rerun before the final pair-lane test was 163 caught,
-18 missed, 25 unviable; the remaining misses were all OR-vs-XOR equivalents in
-disjoint mask replication or `spread64`, except the field OR-fold lanes that
-the final pair-lane test now covers.
+The 9 timeouts are non-terminating loop/index mutants detected by the test
+timeout, not accepted behavior. A real test gap found in the first pass
+(`select_u64` high mask lanes and `ct_is_zero` limb lanes) was fixed; a
+BLAKE3 counter-high-word gap was fixed with
+`counter_high_word_changes_compression`.
 
-**Targeted rerun after closing the gaps:**
+### 3.5 Formal and algebraic checks
 
-- `ct.rs`: 71 mutants — all high-byte/high-lane `&`/shift survivors are now
-  caught; remaining survivors are disjoint-mask OR-vs-XOR equivalents.
-- `field.rs`: 135 mutants — **112 caught, 6 missed, 17 unviable**; every miss
-  is an OR-vs-XOR equivalence in `spread64` (disjoint shift masks).
+- Kani: **11/11** harnesses pass (field encoding/additivity/multiplicative
+  identities/zero/select, CT equality/zero/select, masked GGM selection, byte
+  wipe).
+- Full symbolic sign/verify remains intractable at the local 15-minute budget
+  and is not claimed.
+- Z3 proves the toy GF(2^8) selector has an UNSAT counterexample
+  (`scripts/z3_selector.py`).
+- SymPy verifies the frozen polynomial is irreducible over GF(2):
 
-No non-equivalent high-lane/limb survivor remains in these two constant-time
-primitives.
+```text
+x^288 + x^11 + x^10 + x + 1  irreducible: True
+```
 
+### 3.6 Memory, UB, and runtime checks
 
+| Check | Result |
+|---|---|
+| ASan, full all-features test graph | PASS, no reports |
+| Miri: CT, zeroize, profile, BLAKE3, field, keys, signature | PASS, including strict provenance/symbolic alignment |
+| Valgrind memcheck on attack/bench, sign-test, redteam, model-differential, and field-differential paths | 0 errors, 0 definite/indirect leaks; one 48-byte possible-loss record is in the std test harness, not the library |
+| `cargo-careful` full all-features test graph | PASS |
+| Nextest | 49 tests, all pass |
+| Overflow/debug-assertion release build | PASS |
+
+### 3.7 Constant-time evidence
+
+#### dudect
+
+```text
+sign:       n = 50,000, Welch t = -1.383
+verify:     n = 50,000, Welch t = 0.552
+threshold:  |t| < 4.5
+```
+
+#### ctgrind
+
+A C harness marks the 36-byte seed and 32-byte entropy undefined and calls
+key generation/signing for eight lengths (0–4096). Raw Memcheck reports
+exactly four unique conditional sites, all at the public-key degeneracy check
+`PublicKey::from_bytes` (`keys.rs:25`). The public key is a public output, so
+this is a declassification point, not a seed leak. With those four call stacks
+suppressed, the harness reports **no other secret-dependent branch or address**
+(`scripts/ctgrind.sh`).
+
+#### Cache/assembly
+
+`docs/SIDE-CHANNEL.md` records the two-key cachegrind comparison and the
+assembly audit. LLd misses differ by one out of billions; the remaining
+conditional branches are public loop/slice/key-validation or final
+accept/reject decisions. This is measurement and manual review, not a formal
+constant-time proof.
+
+### 3.8 Coverage
+
+| Scope | Functions | Lines | Regions |
+|---|---:|---:|---:|
+| `vorb3` default features | **100.00%** (169/169) | **99.89%** (1827/1829) | 98.74% |
+| `vorb3` all features | **100.00%** (195/195) | **99.90%** (2050/2052) | 98.82% |
+
+The two residual line entries are LLVM closing-brace/region artifacts; every
+protocol function executes. Details: `docs/COVERAGE.md`.
+
+### 3.9 Portability and stack
+
+Full test graphs run and pass on:
+
+```text
+x86_64-unknown-linux-gnu       native
+aarch64-unknown-linux-gnu      qemu-aarch64
+s390x-unknown-linux-gnu        qemu-s390x, big-endian
+i686-unknown-linux-gnu         native 32-bit
+wasm32-wasip1                  wasmtime, functional graph (no thread-stack test)
+```
+
+The 32 KiB per-operation release stack test passes on x86_64, AArch64, s390x,
+and i686; the output-buffer-on-stack variant uses 64 KiB. Release library
+builds also pass for `powerpc64-unknown-linux-gnu` (big-endian),
+`aarch64-apple-darwin`, `x86_64-apple-darwin`,
+`x86_64-pc-windows-gnu`, `riscv32imac-unknown-none-elf`,
+`thumbv7em-none-eabihf`, and `wasm32-unknown-unknown`.
+
+s390x is a real big-endian runtime check, not a compile-only claim. WASI
+preview1 has no user-controlled thread stack, so the thread-stack test is not
+applicable there.
+
+### 3.10 Reproducibility, supply chain, size
+
+Two clean release rlib builds with the same `SOURCE_DATE_EPOCH` and
+`CARGO_INCREMENTAL=0` are byte-identical:
+
+```text
+sha256 976cd795c7f96a917cdf74f4a9364b9b2acd86e2310023c42a56b0924791af3f
+```
+
+```text
+cargo audit:      0 vulnerabilities in 4 path crates (zero external)
+cargo deny:       advisories/bans/licenses/sources PASS
+cargo machete:    no unused dependencies
+cargo outdated:   all dependencies up to date
+cargo geiger:     vorb3 0/0 unsafe functions/expressions/impls; forbid(unsafe_code)
+cargo llvm-lines: 15,679 monomorphized lines
+cargo bloat:      vorb3 .text ≈87.5 KiB in the attack binary
+CycloneDX SBOM:   vorb3, zero third-party components
+```
 
 ## 4. Findings
 
-1. **No signature bypass or crash was found** in the exhaustive sweep,
-   structured attacks, 16-case model differential, or 77.8M fuzz executions.
-2. **Mutation testing found a real constant-time test gap**: high-byte
-   `select_u64` mask lanes and multi-limb `ct_is_zero` lanes were not fully
-   asserted. High-lane/per-limb tests were added; targeted mutation now catches
-   those non-equivalent mutants.
-3. Remaining mutation survivors are equivalent OR/XOR mask optimizations,
-   exact-boundary comparisons, or the unobservable `Drop` wipe (safe Rust cannot
-   inspect memory after drop).
-4. ASan, Miri, Kani, memcheck, cachegrind, timing, coverage, audit, and license
-   checks are clean at their stated scopes.
-5. The library release build is byte-identical across two clean builds with
-   the same `SOURCE_DATE_EPOCH`.
+1. **No signature bypass, crash, or memory-safety report** was found in the
+   single-bit sweep, structured attacks, 28-case differential, libFuzzer/AFL
+   campaigns, ASan, Miri, memcheck, or careful mode.
+2. **Mutation testing found two real test gaps**: CT high-lane/limb assertions
+   and the BLAKE3 counter high word. Both now have regression tests; the
+   remaining misses are equivalent or unobservable.
+3. **ctgrind found only the public-key degeneracy check** on secret-derived
+   data. It is a public-output declassification; no other secret-dependent
+   branch or address was observed.
+4. **Cross-architecture execution is real**: AArch64, big-endian s390x, and
+   32-bit i686 all pass the full graph and the 32 KiB stack target.
+5. **The rlib is reproducible** across clean builds in this environment.
 
 ## 5. Limits
 
-- Local tools cannot prove cryptographic security or constant-time execution.
-- The 72-hour / 1-billion-execution soak remains deferred; the current
-  campaign is a bounded local fuzz run.
-- AFL++ is present but not used for coverage-guided Rust fuzzing because no
-  Rust/AFL instrumentation is installed; libFuzzer covers this role.
-- No external audit.
-- AArch64 runtime tests are blocked by the missing cross-glibc sysroot; only
-  cross-compilation is claimed.
-- AFL++ is present but has no Rust/AFL instrumentation or QEMU trace in this
-  environment; libFuzzer is the coverage-guided fuzzer used.
-- Mutation survivors and timeouts are reported, not rounded to a perfect score.
+- No external audit; this is not a “certified secure” claim.
+- No full symbolic Kani proof of the complete 288-bit, 15-round, 35-tree
+  sign/verify.
+- No formal multi-round Rain-SP1 cryptanalysis; the local dossier is not a
+  proof.
+- No 72-hour / 1-billion-execution fuzz soak; the bounded campaigns are
+  recorded above.
+- ctgrind, dudect, cachegrind, and assembly review are dynamic/measurement
+  evidence, not formal constant-time proofs.
+- Full sign/verify interpretation under Miri exceeded the 10-minute local
+  budget; the selected primitives, profile, field, keys, signature, and short
+  BLAKE3 paths pass.
+- Zeroization is best-effort; compiler temporaries/registers cannot be audited
+  in safe Rust, and post-drop memory is unobservable.
+- WASI preview1 cannot run the thread-stack test; the functional graph passes.
+- ppc64 big-endian and Apple/Windows targets are compile-only; no runtime
+  sysroot/toolchain is installed here.
+- `cargo-call-stack` is incompatible with the current edition/toolchain;
+  runtime stack tests are the stack evidence.
+- Mutation timeouts and equivalent/unobservable survivors are reported, not
+  rounded away.
+
+## 6. Reproduce
+
+```bash
+./scripts/gate.sh
+./scripts/gate-deep.sh
+./scripts/ctgrind.sh
+./scripts/cross-runtime.sh
+./scripts/wasm-runtime.sh
+./scripts/reproducible.sh
+./scripts/redteam.sh --all
+./scripts/fuzz-campaign.sh 3600
+./scripts/afl-campaign.sh 300
+python3 scripts/z3_selector.py
+python3 scripts/verify_poly.py
+```

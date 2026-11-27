@@ -1,6 +1,6 @@
 # VORB3 SP-288/35 — Coverage Report
 
-**Status:** local coverage checkpoint (2026-11-26).
+**Status:** local coverage checkpoint (2026-11-27).
 **Tooling:** `cargo-llvm-cov 0.9.1`, rustc 1.99.0, `llvm-tools`.
 **Coverage configuration:** `CARGO_PROFILE_TEST_OPT_LEVEL=0` so `#[inline]`
 wrappers do not hide library lines inside test-harness code.
@@ -14,24 +14,25 @@ release stack claim is tested separately by `scripts/gate.sh`.
 
 | Scope | Functions | Lines | Regions |
 |---|---:|---:|---:|
-| `vorb3` default features (shipped library) | **100.00%** (167/167) | **99.89%** (1799/1801) | 98.72% |
-| `vorb3` all features (includes `bench-api`) | **100.00%** (193/193) | **99.90%** (2022/2024) | 98.80% |
-| Whole workspace including dev CLIs | 72.83% (193/265) | 75.70% (2022/2671) | 73.73% |
+| `vorb3` default features (shipped library) | **100.00%** (169/169) | **99.89%** (1827/1829) | 98.74% |
+| `vorb3` all features (includes `bench-api`) | **100.00%** (195/195) | **99.90%** (2050/2052) | 98.82% |
+| Whole workspace including dev CLIs | 72.49% (195/269) | 74.96% (2048/2732) | 73.19% |
 
-The workspace total is lower only because `tools/attack` and `tools/bench` are
-CLI harnesses with no unit tests. They are not shipped library code. Their
-benchmark/attack behavior is exercised by `scripts/bench.sh` and
-`tools/attack`, not by the unit-test graph.
+The workspace total is lower because `tools/attack` and `tools/bench` are CLI
+harnesses with no unit tests, and `tools/ctgrind` is a Valgrind FFI harness.
+None is shipped library code. Their behavior is exercised by
+`scripts/bench.sh`, `tools/attack`, and `scripts/ctgrind.sh`, not by the unit
+test graph.
 
 ## Per-file, all features
 
 | File | Functions | Lines | Regions |
 |---|---:|---:|---:|
 | `bench_api.rs` | 100.00% | 100.00% | 100.00% |
-| `blake3.rs` | 100.00% | 99.75% | 99.11% |
+| `blake3.rs` | 100.00% | 99.75% | 99.13% |
 | `ct.rs` | 100.00% | 100.00% | 100.00% |
 | `field.rs` | 100.00% | 100.00% | 97.63% |
-| `ggm.rs` | 100.00% | 100.00% | 99.12% |
+| `ggm.rs` | 100.00% | 100.00% | 99.19% |
 | `keys.rs` | 100.00% | 100.00% | 99.03% |
 | `rain.rs` | 100.00% | 100.00% | 97.35% |
 | `sign.rs` | 100.00% | 99.83% | 98.63% |
@@ -51,7 +52,7 @@ These are region-attribution artifacts, not unexecuted protocol statements.
 non-zero counts. There are no unexecuted public APIs or protocol phases; every
 library function is executed.
 
-Region coverage is lower (98.84%) because defensive bounds checks and
+Region coverage is lower (98.82%) because defensive bounds checks and
 `if let` false paths (fixed-size buffers, checked offsets) are intentionally
 kept and are not all triggered. Lines and functions are the requested metrics.
 

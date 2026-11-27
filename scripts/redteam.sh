@@ -27,16 +27,46 @@ printf '== timing ==\n'
 printf '== cachegrind/assembly ==\n'
 ./scripts/sidechannel.sh
 
-if [[ "${1:-}" == "--fuzz" ]]; then
-  printf '== multi-target fuzz campaign ==\n'
-  ./scripts/fuzz-campaign.sh
-fi
+printf '== ctgrind ==\n'
+./scripts/ctgrind.sh
 
-if [[ "${1:-}" == "--mutants" ]]; then
-  printf '== mutation testing ==\n'
-  RUST_TEST_THREADS=1 cargo mutants -p vorb3 --test-tool cargo \
-    --jobs 8 --timeout 8 --build-timeout 30 --copy-target false \
-    -E 'kani_proofs|bench_api|bench::|prefix_tests|::tests::'
-fi
+case "${1:-}" in
+  --fuzz)
+    printf '== multi-target fuzz campaign ==\n'
+    ./scripts/fuzz-campaign.sh
+    ;;
+  --mutants)
+    printf '== mutation testing ==\n'
+    RUST_TEST_THREADS=1 cargo mutants -p vorb3 --test-tool cargo \
+      --jobs 8 --timeout 15 --build-timeout 60 --copy-target false \
+      -E 'kani_proofs|bench_api|bench::|prefix_tests|::tests::'
+    ;;
+  --cross)
+    printf '== cross-architecture runtime ==\n'
+    ./scripts/cross-runtime.sh
+    ;;
+  --wasm)
+    printf '== wasm32-wasip1 runtime ==\n'
+    ./scripts/wasm-runtime.sh
+    ;;
+  --all)
+    printf '== reproducibility ==\n'
+    ./scripts/reproducible.sh
+    printf '== SBOM ==\n'
+    ./scripts/sbom.sh
+    printf '== cross-architecture runtime ==\n'
+    ./scripts/cross-runtime.sh
+    printf '== wasm32-wasip1 runtime ==\n'
+    ./scripts/wasm-runtime.sh
+    printf '== AFL++ parse campaign ==\n'
+    ./scripts/afl-campaign.sh 300
+    printf '== multi-target fuzz campaign ==\n'
+    ./scripts/fuzz-campaign.sh
+    printf '== mutation testing ==\n'
+    RUST_TEST_THREADS=1 cargo mutants -p vorb3 --test-tool cargo \
+      --jobs 8 --timeout 15 --build-timeout 60 --copy-target false \
+      -E 'kani_proofs|bench_api|bench::|prefix_tests|::tests::'
+    ;;
+esac
 
 printf 'REDTEAM GATE COMPLETE\n'

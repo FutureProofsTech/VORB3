@@ -182,3 +182,25 @@ fn parse_edges_and_tree_count() {
     let empty = [0u8; 0];
     assert!(Signature::from_bytes(&empty).is_err());
 }
+
+#[test]
+fn large_message_zero_seed_and_entropy_separation() {
+    let compact = SecretKey::from_seed([0u8; 36]);
+    let expanded = ExpandedSecretKey::from_seed(&compact);
+    let Ok(public) = expanded.public_key() else {
+        return;
+    };
+    let message = std::vec![0xA5u8; 1024 * 1024];
+    let mut first = [0u8; SIGNATURE_LEN];
+    let mut second = [0u8; SIGNATURE_LEN];
+    assert!(sign_into(&message, &expanded, &[0u8; 32], &mut first).is_ok());
+    assert!(sign_into(&message, &expanded, &[0u8; 32], &mut second).is_ok());
+    assert_eq!(first, second);
+    assert!(verify_bytes(&message, &public, &first).is_ok());
+    assert!(verify_bytes(b"other", &public, &first).is_err());
+
+    let mut third = [0u8; SIGNATURE_LEN];
+    assert!(sign_into(&message, &expanded, &[1u8; 32], &mut third).is_ok());
+    assert_ne!(first, third);
+    assert!(verify_bytes(&message, &public, &third).is_ok());
+}

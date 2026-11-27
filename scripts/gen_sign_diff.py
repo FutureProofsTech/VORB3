@@ -14,8 +14,11 @@ sys.path.insert(0, str(ROOT / "model"))
 import vorb3_model as model  # noqa: E402
 
 MAGIC = b"VORB3DIFF1"
-LENGTHS = [0, 1, 7, 31, 32, 33, 63, 64, 127, 255, 1024, 4096, 17, 100, 257, 2048]
-CASES = 16
+LENGTHS = [
+    0, 1, 7, 31, 32, 33, 63, 64, 65, 127, 128, 129, 255, 256, 257,
+    511, 512, 513, 1023, 1024, 1025, 2047, 3000, 4095, 4096, 4097, 8191, 8192,
+]
+CASES = len(LENGTHS)
 
 
 def main() -> int:

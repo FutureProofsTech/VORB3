@@ -18,4 +18,12 @@ cargo +nightly miri test --test profile
 printf '== Miri: short BLAKE3 ==\n'
 cargo +nightly miri test --test blake3 blake3_xof_keyed_derive
 
+printf '== Miri: field/keys/signature ==\n'
+MIRIFLAGS='-Zmiri-strict-provenance -Zmiri-symbolic-alignment-check' \
+  cargo +nightly miri test --test field
+MIRIFLAGS='-Zmiri-strict-provenance -Zmiri-symbolic-alignment-check' \
+  cargo +nightly miri test --test keys
+MIRIFLAGS='-Zmiri-strict-provenance -Zmiri-symbolic-alignment-check' \
+  cargo +nightly miri test --test signature
+
 printf 'DEEP GATE: PASS\n'

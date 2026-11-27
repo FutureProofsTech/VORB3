@@ -371,3 +371,41 @@ KAT remains byte-identical; 32 KiB stack and all gates pass.
 safe hardware CLMUL/SIMD or a protocol change; neither is taken here.
 
 **Evidence:** `docs/OPTIMIZATIONS.md`, `docs/BENCHMARKS.md`, KAT/gates.
+
+---
+
+## D24 — Extended local assurance campaign
+
+**Status:** Accepted for the local candidate checkpoint (2026-11-27).
+
+**Context:** The Phase 7 checkpoint left cross-architecture runtime, mutation,
+coverage, reproducible-build, and tool-hygiene evidence incomplete. The
+72-hour / 1-billion-execution fuzz soak and external audit remain out of scope.
+
+**Choice:**
+- Re-run the full 494-mutant inventory and classify every survivor; fix real
+  test gaps instead of rounding the score.
+- Expand the independent-model differential from 16 to 28 cases (0–8192 bytes)
+  and run 4,096 field differential records plus 10,000 inverse checks.
+- Add 11 Kani helper proofs and strict-provenance Miri coverage for field, keys,
+  and signature; run 50,000-sample dudect for sign and verify.
+- Add Valgrind ctgrind for key generation/signing, with the public-key
+  degeneracy check documented as a public-value declassification.
+- Run full test graphs on AArch64, big-endian s390x, and 32-bit i686; run the
+  functional WASI graph on wasmtime.
+- Run a 1-hour six-target libFuzzer campaign and a secondary AFL++ parse
+  campaign; keep the 72-hour soak deferred.
+- Record a clean-build rlib hash, SBOM, dependency/unsafe scans, and size data.
+
+**Result:** mutation 371 caught / 30 missed / 84 unviable / 9 timeouts (92.5% of
+viable non-timeout mutants); coverage 100% functions / 99.90% lines; Kani 11/11;
+full cross-architecture stack target passes; ctgrind finds no secret-dependent
+branch/address outside the public-key declassification; rlib reproducible.
+
+**Consequences:** the local evidence is materially stronger, but it is still
+not a security certificate. The full symbolic sign/verify proof, formal
+Rain-SP1 cryptanalysis, 72-hour soak, and external review remain open.
+
+**Evidence:** `docs/REDTEAM-CAMPAIGN.md`, `docs/COVERAGE.md`,
+`docs/SIDE-CHANNEL.md`, `scripts/ctgrind.sh`, `scripts/cross-runtime.sh`,
+`scripts/wasm-runtime.sh`, `scripts/reproducible.sh`.

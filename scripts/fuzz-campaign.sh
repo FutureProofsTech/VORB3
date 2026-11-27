@@ -17,8 +17,8 @@ for target in verify verify_any sign parse field rain; do
     *) max_len=72 ;;
   esac
   "$bin/$target" -max_total_time="$seconds" -max_len="$max_len" \
-    -artifact_prefix="$PWD/artifacts/$target/" -print_final_stats=1 \
-    "corpus/$target" >"/tmp/opencode/fuzz_${target}.log" 2>&1 &
+    -use_value_profile=1 -artifact_prefix="$PWD/artifacts/$target/" \
+    -print_final_stats=1 "corpus/$target" >"/tmp/opencode/fuzz_${target}.log" 2>&1 &
 done
 wait
 printf 'FUZZ CAMPAIGN COMPLETE\n'

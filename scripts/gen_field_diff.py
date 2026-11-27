@@ -27,7 +27,7 @@ def main() -> int:
     rng = random.Random(0x564F5242335350323838)  # "VORB3SP288"
     out = ROOT / "kat" / "field_sp288_diff.bin"
     out.parent.mkdir(parents=True, exist_ok=True)
-    records = 512
+    records = 4096
     with out.open("wb") as handle:
         for index in range(records):
             if index == 0:
