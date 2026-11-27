@@ -1,6 +1,6 @@
 # VORB3 Documentation Index
 
-**Status:** Phase 7 local implementation/attack checkpoint (2026-11-27).
+**Status:** v1.0.0 official local release (2026-11-27).
 The production `no_std` crate is implemented and locally exercised; this is not
 a release certificate and no external audit is claimed.
 
@@ -23,6 +23,7 @@ a release certificate and no external audit is claimed.
 | `OPTIMIZATIONS.md` | Field/BLAKE3/GGM optimization report and speedups |
 | `COVERAGE.md` | llvm-cov line/function/region coverage report |
 | `REDTEAM-CAMPAIGN.md` | Extended multi-tool red-team campaign |
+| `RELEASES.md` | Versioned release surface, hashes, and evidence |
 | `sbom/vorb3.cdx.json` | CycloneDX SBOM snapshot (zero third-party components) |
 | `../model/vorb3_model.py` | Independent Python/py-blake3 model |
 | `../model/README.md` | Model usage and limitations |

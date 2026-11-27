@@ -104,7 +104,7 @@ human-readable conclusion.
 | Mutation | 494 mutants: 371 caught, 27 Z3-checked equivalents + 3 unobservable `Drop`, 84 unviable, 9 timeouts |
 | Coverage | 100% functions, 99.90% lines (all features) |
 | ctgrind | only the public-key degeneracy check depends on secret-derived data; suppressed check leaves zero |
-| Reproducible rlib | `36bd002b…` twice |
+| Reproducible rlib | `60e98d9c…` twice |
 | dudect sign/verify, cachegrind, assembly | local evidence; see side-channel report |
 | Rain-SP1 dossier | local analysis complete; no proof |
 | External audit | **none** |

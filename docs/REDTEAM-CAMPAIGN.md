@@ -243,7 +243,7 @@ Two clean release rlib builds with the same `SOURCE_DATE_EPOCH` and
 `CARGO_INCREMENTAL=0` are byte-identical:
 
 ```text
-sha256 36bd002b32f3ebb8c4d3db3ae5a6e9ed0f669607bd8a97500741b76e7ecf69cc
+sha256 60e98d9c4c469ad8f5539345f55be33364d2995fff22dd7dfeaf4c323abf1bd4
 ```
 
 ```text

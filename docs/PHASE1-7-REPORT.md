@@ -53,7 +53,7 @@ Signature layout:
   no `as` casts, no float arithmetic, `missing_inline_in_public_items`, and
   `exhaustive_structs`.
 
-The shipped dependency graph is only `vorb3 v0.1.0`.
+The shipped dependency graph is only `vorb3 v1.0.0`.
 
 ## 3. Phase 2 — field/CT foundation
 
