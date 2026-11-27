@@ -2,8 +2,7 @@
 
 ## v1.2.0 — NIST Level 3+ (SP-224/32), 2026-11-27
 
-**Tag:** staged on the v1.1.0 source line; cut after the final Level 3+ evidence
-check. The two profile features remain mutually exclusive.
+**Tag:** v1.2.0. The two profile features remain mutually exclusive.
 
 **Profile:** GF(2^224), 32 GGM trees, depth 8, 15 rounds, 10,296-byte
 signature. Conservative floor ≈108.5-bit quantum / 217-bit classical, above
@@ -25,7 +24,7 @@ missed/classified, 53 unviable, 10 timeouts); Kani 16/16; ASan pass; coverage
 100% functions / 99.70% lines; 32 KiB stack pass; selected field/key Miri pass;
 AArch64/s390x/i686/ppc64/Windows/WASI runtime passes; dudect 50k sign t=0.026, verify t=0.012;
 local quick bench sign ≈17.0 ms / verify ≈5.6 ms; reproducible rlib
-SHA-256 `e6dc131a245ad306a753d4c0da81c2b81627ad5db04e8e38ee962cd9758f55f5`.
+SHA-256 `805891376f7f6c3ff828d569a5770e7e19c519a73f770a473725f2123dabb5fa`.
 
 ## v1.1.0 — NIST Level 1+ (SP-160/32), 2026-11-27
 

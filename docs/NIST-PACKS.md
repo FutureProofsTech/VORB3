@@ -1,8 +1,7 @@
 # VORB3 NIST-Tier Packs
 
-**Status:** v1.1.0 releases Level 1+; Level 3+ is staged on the same source
-line for the v1.2.0 tag. Local evidence only; no external audit or “certified
-secure” claim.
+**Status:** v1.2.0 releases both Level 1+ and Level 3+. Local evidence only;
+no external audit or “certified secure” claim.
 
 The protocol requires `T >= 2R+2 = 32` GGM trees for 15 rounds: 31 secret
 wires plus one mask leaf. The 18/27-tree idea is therefore not implementable

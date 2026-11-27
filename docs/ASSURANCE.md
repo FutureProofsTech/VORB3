@@ -125,7 +125,7 @@ human-readable conclusion.
 | Coverage | 100% funcs / 99.70% lines | 100% funcs / 99.70% lines |
 | 300 s libFuzzer | 7,260,135 execs, 0 crashes | 18,848,000 execs, 0 crashes |
 | 32 KiB release stack | pass | pass |
-| Reproducible rlib | `15a140a6…8cac36` | `e6dc131a…8f55f5` |
+| Reproducible rlib | `15a140a6…8cac36` | `80589137…ab5fa` |
 | Cross-runtime | AArch64/s390x/i686/ppc64/Windows/WASI pass | AArch64/s390x/i686/ppc64/Windows/WASI pass |
 | Targeted mutation | 403: 316 caught, 24 missed, 53 unviable, 10 timeouts | 403: 316 caught, 24 missed, 53 unviable, 10 timeouts |
 

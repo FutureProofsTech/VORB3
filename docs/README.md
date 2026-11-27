@@ -1,6 +1,6 @@
 # VORB3 Documentation Index
 
-**Status:** v1.1.0 release — v1.0.0 SP-288/35 plus the NIST Level 1+ pack; the Level 3+ pack is staged for the v1.2.0 tag (2026-11-27).
+**Status:** v1.2.0 release line — v1.0.0 SP-288/35 plus the NIST Level 1+ and Level 3+ packs (2026-11-27).
 The production `no_std` crate is implemented and locally exercised; this is not
 a release certificate and no external audit is claimed.
 
