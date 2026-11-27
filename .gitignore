@@ -19,3 +19,12 @@ PLAN.md
 
 # Superseded architecture/planning draft (kept out of the published tree).
 project
+
+# LaTeX build products (PDFs and sources are tracked).
+docs/papers/*.aux
+docs/papers/*.log
+docs/papers/*.out
+docs/papers/*.toc
+docs/papers/*.fls
+docs/papers/*.fdb_latexmk
+docs/papers/*.synctex.gz

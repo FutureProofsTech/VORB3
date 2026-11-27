@@ -24,6 +24,7 @@
 
 ## Contents
 
+- [Papers](#papers)
 - [Overview](#overview)
 - [Profiles](#profiles)
 - [Design](#design)
@@ -42,6 +43,17 @@
 - [License](#license)
 
 ---
+
+## Papers
+
+Long-form companion documents are included in the repository:
+
+- [Academic white paper (PDF)](docs/papers/VORB3-SP1-Whitepaper.pdf) /
+  [LaTeX source](docs/papers/VORB3-SP1-Whitepaper.tex) — design, security
+  argument, implementation, evaluation, and limitations.
+- [Yellow paper (PDF)](docs/papers/VORB3-SP1-Yellow-Paper.pdf) /
+  [LaTeX source](docs/papers/VORB3-SP1-Yellow-Paper.tex) — formal protocol,
+  algorithms, wire format, domain separation, and test-vector manifest.
 
 ## Overview
 
@@ -554,6 +566,8 @@ release notes and hashes are in [`docs/RELEASES.md`](docs/RELEASES.md).
 
 | Document | Purpose |
 |---|---|
+| [`docs/papers/VORB3-SP1-Whitepaper.pdf`](docs/papers/VORB3-SP1-Whitepaper.pdf) | Academic white paper (PDF) |
+| [`docs/papers/VORB3-SP1-Yellow-Paper.pdf`](docs/papers/VORB3-SP1-Yellow-Paper.pdf) | Formal yellow paper (PDF) |
 | [`docs/VORB3-SPEC-1.md`](docs/VORB3-SPEC-1.md) | Frozen protocol, equations, and wire specification |
 | [`docs/WIRE-BINDING.md`](docs/WIRE-BINDING.md) | Byte-by-byte signature binding table |
 | [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md) | Assets, adversaries, trust boundaries |

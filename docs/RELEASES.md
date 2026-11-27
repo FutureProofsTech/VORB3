@@ -39,7 +39,9 @@ byte-identical release rlibs: Level 1+
 Level 3+
 `cf198c13ad60a2bde5a148895bb61d1707667efaee8bcea7a328969a9873d20b`.
 
-Full tables: `NIST-BENCHMARKS.md`. This is local evidence only, not an
+Full tables: `NIST-BENCHMARKS.md`. Long-form papers:
+`docs/papers/VORB3-SP1-Whitepaper.pdf` and
+`docs/papers/VORB3-SP1-Yellow-Paper.pdf`. This is local evidence only, not an
 external audit or a security certificate.
 
 ## v1.2.0 — NIST Level 3+ (SP-224/32), 2026-11-27

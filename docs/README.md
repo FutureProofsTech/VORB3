@@ -7,6 +7,8 @@ release certificate and no external audit is claimed.
 | Document | Purpose |
 |---|---|
 | `PHASE0-REPORT.md` | Phase 0 findings, corrections, model results |
+| `papers/VORB3-SP1-Whitepaper.pdf` | Academic white paper (PDF; LaTeX source alongside) |
+| `papers/VORB3-SP1-Yellow-Paper.pdf` | Formal yellow paper (PDF; LaTeX source alongside) |
 | `VORB3-SPEC-1.md` | Frozen protocol/equation/wire specification |
 | `WIRE-BINDING.md` | Byte-by-byte binding table |
 | `THREAT-MODEL.md` | Assets, adversaries, trust boundaries |
