@@ -153,13 +153,13 @@ release build of each pack:
 
 | Pack | Sign mean (a/b) | Sign Welch t | Verify mean (a/b) | Verify Welch t |
 |---|---:|---:|---:|---:|
-| Level 1+ (SP-160/32) | 10,534,457 / 10,539,700 ns | -1.820 | 5,313,381 / 5,309,187 ns | 2.113 |
-| Level 3+ (SP-224/32) | 16,072,904 / 16,072,739 ns | 0.026 | 5,467,552 / 5,467,535 ns | 0.012 |
+| Level 1+ (SP-160/32) | 4,958,499 / 4,959,088 ns | -0.317 | 4,741,353 / 4,742,371 ns | -0.468 |
+| Level 3+ (SP-224/32) | 5,267,041 / 5,263,634 ns | 1.460 | 4,791,630 / 4,789,325 ns | 0.977 |
 
 All four tests are inside the `|t| < 4.5` acceptance threshold. These are
 statistical measurements, not a formal constant-time proof. Selected field and
-key primitives pass Miri for both packs; the Level 3+ key path is additionally
-checked with strict provenance and symbolic alignment.
+key primitives pass Miri for both packs under strict provenance and symbolic
+alignment.
 
 ## 3. Interpretation limits
 

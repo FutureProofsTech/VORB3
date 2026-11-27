@@ -119,15 +119,16 @@ human-readable conclusion.
 | Structured envelope attacks | pass | pass |
 | Single-bit sweep | 63,808 rejected | 82,368 rejected |
 | Kani | 16/16 | 16/16 |
-| Miri selected primitives | field + keys pass | field + keys pass |
-| Dudect (50k) | sign t=-1.820, verify t=2.113 | sign t=0.026, verify t=0.012 |
+| Miri selected primitives (strict) | field + keys pass | field + keys pass |
+| Dudect (50k) | sign t=-0.317, verify t=-0.468 | sign t=1.460, verify t=0.977 |
 | ASan full graph | pass | pass |
 | Coverage | 100% funcs / 99.70% lines | 100% funcs / 99.70% lines |
-| 300 s libFuzzer | 7,260,135 execs, 0 crashes | 18,848,000 execs, 0 crashes |
+| 300 s libFuzzer | 12,310,692 execs, 0 crashes | 24,575,666 execs, 0 crashes |
 | 32 KiB release stack | pass | pass |
-| Reproducible rlib | `15a140a6…8cac36` | `80589137…ab5fa` |
+| Full benchmark, 32 B | sign 4.855 ms / verify 4.639 ms | sign 5.105 ms / verify 4.648 ms |
+| Reproducible rlib | `bc245cdb…bd0d` | `cf198c13…d20b` |
 | Cross-runtime | AArch64/s390x/i686/ppc64/Windows/WASI pass | AArch64/s390x/i686/ppc64/Windows/WASI pass |
-| Targeted mutation | 403: 316 caught, 24 missed, 53 unviable, 10 timeouts | 403: 316 caught, 24 missed, 53 unviable, 10 timeouts |
+| Targeted mutation | 427: 335 caught, 29 missed, 53 unviable, 10 timeouts | 427: 335 caught, 29 missed, 53 unviable, 10 timeouts |
 
 The `+` labels are conservative margins over NIST Level 1 (64q/128c) and
 Level 3 (96q/192c); the parameter definitions are in `NIST-PACKS.md`.

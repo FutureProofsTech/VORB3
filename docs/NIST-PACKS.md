@@ -1,7 +1,8 @@
 # VORB3 NIST-Tier Packs
 
-**Status:** v1.2.0 releases both Level 1+ and Level 3+. Local evidence only;
-no external audit or “certified secure” claim.
+**Status:** v1.3.0 releases both Level 1+ and Level 3+ with the optimized
+compact-field arithmetic. Local evidence only; no external audit or
+“certified secure” claim.
 
 The protocol requires `T >= 2R+2 = 32` GGM trees for 15 rounds: 31 secret
 wires plus one mask leaf. The 18/27-tree idea is therefore not implementable
@@ -13,8 +14,8 @@ vary the field size with the mandatory 32 trees.
 | Pack | Version | Field | Trees | Signature | Public key | Seed | Quantum floor | Classical floor |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
 | Level 5 baseline | v1.0.0 | GF(2^288) | 35 | 13,672 B | 72 B | 36 B | ≈140 | 256 |
-| NIST Level 1+ | v1.1.0 | GF(2^160) | 32 | 7,976 B | 40 B | 20 B | ≈76.5 | 153 |
-| NIST Level 3+ | v1.2.0 | GF(2^224) | 32 | 10,296 B | 56 B | 28 B | ≈108.5 | 217 |
+| NIST Level 1+ | v1.3.0 | GF(2^160) | 32 | 7,976 B | 40 B | 20 B | ≈76.5 | 153 |
+| NIST Level 3+ | v1.3.0 | GF(2^224) | 32 | 10,296 B | 56 B | 28 B | ≈108.5 | 217 |
 
 Standard NIST categories used here:
 
@@ -24,6 +25,8 @@ Level 3: 96-bit quantum / 192-bit classical
 Level 5: 128-bit quantum / 256-bit classical
 ```
 
+The Level 1+ and Level 3+ packs were introduced in v1.1.0 and v1.2.0;
+v1.3.0 optimizes their field arithmetic without changing parameters or KATs.
 The packs are labelled “+” because each floor is above its nominal category.
 The Level 1+ margin is 12.5 quantum bits over Level 1; the Level 3+ margin is
 12.5 quantum bits over Level 3; v1.0.0 is 12 quantum bits over Level 5.
@@ -92,23 +95,26 @@ Both packs have:
 - full single-bit signature sweep: 63,808 mutations (160/32) and 82,368
   (224/32), zero accepted;
 - 16/16 Kani helpers each;
-- dudect 50,000 samples: Level 1+ sign t=-1.820, verify t=2.113;
-  Level 3+ sign t=0.026, verify t=0.012;
+- dudect 50,000 samples: Level 1+ sign t=-0.317, verify t=-0.468;
+  Level 3+ sign t=1.460, verify t=0.977;
 - ASan full test graph;
-- selected Miri field/key primitives: field 358 s / keys 2,685 s (Level 1+),
-  field 805 s / keys 6,034 s (Level 3+); the Level 3+ key path runs with
-  strict provenance and symbolic alignment;
+- selected Miri field/key primitives under strict provenance and symbolic
+  alignment: field 12.2 s / keys 93.1 s (Level 1+), field 24.0 s / keys
+  181.7 s (Level 3+);
 - coverage 100% functions / 99.70% lines (the six residual lines are guard
   returns inside test code, not protocol statements);
-- 300-second six-target libFuzzer campaigns;
-- targeted mutation runs: 403 mutants each, 316 caught, 24 missed, 53
-  unviable, 10 timeouts; 15 equivalence classes discharged with Z3
+- 300-second six-target libFuzzer campaigns: 12,310,692 executions
+  (Level 1+) and 24,575,666 (Level 3+), zero crashes;
+- targeted mutation runs: 427 mutants each, 335 caught, 29 missed, 53
+  unviable, 10 timeouts; 21 equivalence classes discharged with Z3
   (`scripts/verify_mutation_equivalences.py`);
 - 32 KiB stack target in release;
-- byte-identical release rlibs across two clean builds;
+- byte-identical release rlibs across two clean builds
+  (`bc245cdb…bd0d` Level 1+, `cf198c13…d20b` Level 3+);
 - cross-architecture and portable-runtime checks;
-- full benchmark medians on the build host (25 samples): sign 9.60 ms /
-  verify 4.76 ms (160/32); sign 15.19 ms / verify 5.41 ms (224/32);
+- full benchmark medians on the build host (25 samples): sign 4.86 ms /
+  verify 4.64 ms (160/32); sign 5.10 ms / verify 4.65 ms (224/32);
+  field inversion 4.43 / 9.40 µs and squaring 10.5 / 11.8 ns;
 - full benchmark report: `NIST-BENCHMARKS.md` (25 samples per benchmark,
   same-session SP-288/35 comparison).
 
@@ -119,7 +125,39 @@ packs use the randomized dudect and ASan evidence above.
 Detailed numbers are recorded in `REDTEAM-CAMPAIGN.md`; release hashes are in
 `RELEASES.md`.
 
-## 6. Commands
+## 6. Compact-field optimization
+
+The compact field originally reused schoolbook multiplication for squaring
+and a sequential square-and-multiply inversion. Three changes removed that
+bottleneck without changing the wire format or KATs:
+
+- **Bit-interleaved squaring:** squaring inserts zero coefficients, so each
+  32-bit limb is spread into even bit positions and reduced once.
+- **Word-level reduction:** when `BITS` is a multiple of 32, high product words
+  reduce in one descending pass by XORing four shifted copies at
+  `word - BITS/32`; this replaced the per-bit reduction loop.
+- **Itoh–Tsujii inversion:** the fixed public exponent `2^BITS - 2` is built
+  with `BITS - 1` squarings and about `log2(BITS)` multiplications instead of
+  `BITS - 1` multiplications.
+
+Measured medians (25 samples, same host):
+
+| Operation | L1+ before | L1+ after | L3+ before | L3+ after |
+|---|---:|---:|---:|---:|
+| Field multiplication | 903 ns | **216 ns** | 1.34 µs | **409 ns** |
+| Field squaring | 937 ns | **10.5 ns** | 1.36 µs | **11.8 ns** |
+| Field inversion | 300.4 µs | **4.43 µs** | 601.6 µs | **9.40 µs** |
+| Rain-SP1 encryption | 4.418 ms | **69.4 µs** | 9.082 ms | **146.7 µs** |
+| Key generation | 4.665 ms | **74.2 µs** | 9.244 ms | **151.8 µs** |
+| Sign, 32 B | 9.602 ms | **4.855 ms** | 15.186 ms | **5.105 ms** |
+| Verify, 32 B | 4.761 ms | **4.639 ms** | 5.412 ms | **4.648 ms** |
+
+All KAT hashes and differential vectors are unchanged. The operations remain
+fixed-iteration and branch on public values only, so the constant-time
+properties and 32 KiB stack target are preserved. With Rain no longer
+dominant, GGM/BLAKE3 root derivation is now ~93–96% of signing time.
+
+## 7. Commands
 
 ```bash
 cargo test -p vorb3 --features nist1,bench-api

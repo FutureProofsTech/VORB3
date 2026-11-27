@@ -1,6 +1,6 @@
 # VORB3 Documentation Index
 
-**Status:** v1.2.0 release line — v1.0.0 SP-288/35 plus the NIST Level 1+ and Level 3+ packs (2026-11-27).
+**Status:** v1.3.0 release line — v1.0.0 SP-288/35 plus the optimized NIST Level 1+ and Level 3+ packs (2026-11-27).
 The production `no_std` crate is implemented and locally exercised; this is not
 a release certificate and no external audit is claimed.
 
@@ -13,7 +13,7 @@ a release certificate and no external audit is claimed.
 | `THREAT-MODEL.md` | Assets, adversaries, trust boundaries |
 | `ASSURANCE.md` | Requirement → evidence matrix and Phase 7 status |
 | `SECURITY-CASE.md` | Security target, F-33 union bound, assumptions |
-| `DECISIONS.md` | ADRs D1–D25 and findings F-01–F-33 |
+| `DECISIONS.md` | ADRs D1–D26 and findings F-01–F-33 |
 | `PHASE0-REDTEAM.md` | Internal adversarial review |
 | `PHASE1-7-REPORT.md` | Phase 1–7 implementation and evidence checkpoint |
 | `PHASE7-ATTACK-REPORT.md` | Bit-flip, fuzz, stack, Kani, cachegrind, assembly |

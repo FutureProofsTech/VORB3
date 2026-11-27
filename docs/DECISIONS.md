@@ -448,3 +448,31 @@ ASan, coverage, fuzzing, mutation, stack, and cross-runtime checks. The
 **Evidence:** `docs/NIST-PACKS.md`, `docs/RELEASES.md`,
 `scripts/nist-gate.sh`, `scripts/fuzz-campaign.sh`,
 `scripts/cross-runtime.sh`, `scripts/portable-runtime.sh`.
+
+---
+
+## D26 — Compact-field squaring and inversion optimization
+
+**Status:** Accepted after the v1.2.0 benchmarks (2026-11-27).
+
+**Context:** The compact packs used schoolbook multiplication for squaring and
+a sequential square-and-multiply inversion. Full benchmarks showed field
+inversion at 300 µs (L1+) / 602 µs (L3+) and Rain-SP1 encryption at 4.42 ms /
+9.08 ms, dominating compact-pack signing.
+
+**Change:**
+- Bit-interleaved squaring with a 32-bit spread.
+- Word-level reduction for the `BITS % 32 == 0` compact fields.
+- Itoh-Tsujii binary-chain inversion for `2^BITS - 2`.
+
+**Result (25-sample medians):** inversion 4.43 µs / 9.40 µs; Rain encryption
+69.4 µs / 146.7 µs; sign 4.855 ms / 5.105 ms, below the 6.364 ms SP-288/35
+baseline while retaining the smaller signatures.
+
+**Invariants:** Wire format, KATs, differential vectors, `no_std`, zero
+runtime dependencies, `forbid(unsafe_code)`, fixed-iteration control flow, and
+the 32 KiB stack target are unchanged. Both profile gates, Kani, ASan, Miri,
+mutation, fuzz, and cross-runtime evidence were rerun.
+
+**Evidence:** `docs/NIST-BENCHMARKS.md`, `docs/NIST-PACKS.md`,
+`vorb3/src/field_nist.rs`.

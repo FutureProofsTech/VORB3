@@ -28,6 +28,22 @@ def spread64(value, xor_stage: int | None = None):
     return spread
 
 
+def spread32(value, xor_stage: int | None = None):
+    spread = ZeroExt(32, value)
+    stages = [
+        (16, 0x0000_FFFF_0000_FFFF),
+        (8, 0x00FF_00FF_00FF_00FF),
+        (4, 0x0F0F_0F0F_0F0F_0F0F),
+        (2, 0x3333_3333_3333_3333),
+        (1, 0x5555_5555_5555_5555),
+    ]
+    for index, (shift, mask) in enumerate(stages):
+        shifted = spread << shift
+        combined = (spread ^ shifted) if xor_stage in (index, -1) else (spread | shifted)
+        spread = combined & BitVecVal(mask, 64)
+    return spread
+
+
 def equivalent(left, right) -> bool:
     solver = Solver()
     solver.add(left != right)
@@ -44,6 +60,14 @@ def main() -> int:
         checks += 1
     # The all-XOR expression is also equal.
     assert equivalent(spread64(value), spread64(value, xor_stage=-1))
+    checks += 1
+
+    # Each one-OR->XOR mutant in the compact-field spread32.
+    value32 = BitVec("value32", 32)
+    for stage in range(5):
+        assert equivalent(spread32(value32), spread32(value32, xor_stage=stage))
+        checks += 1
+    assert equivalent(spread32(value32), spread32(value32, xor_stage=-1))
     checks += 1
 
     # select_u64 mask replication: OR and XOR agree for the 0x00/0xFF byte.

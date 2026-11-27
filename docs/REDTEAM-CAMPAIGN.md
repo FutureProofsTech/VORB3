@@ -278,15 +278,15 @@ Evidence:
   rejected (224/32);
 - Kani **16/16** each;
 - ASan full test graph pass each; selected field/key primitives pass Miri
-  (Level 3+ key path with strict provenance and symbolic alignment);
+  under strict provenance and symbolic alignment;
 - coverage **100% functions**, **99.70% lines** each; the six residual lines are
   guard returns in test code, not protocol statements;
-- 300-second six-target libFuzzer campaigns: **7,260,135** executions
-  (Level 1+) and **18,848,000** (Level 3+), zero crashes;
+- 300-second six-target libFuzzer campaigns: **12,310,692** executions
+  (Level 1+) and **24,575,666** (Level 3+), zero crashes;
 - 32 KiB release stack target passes each;
 - two clean release builds produce byte-identical rlibs for each pack;
-- 403 targeted mutants each: 316 caught, 24 missed, 53 unviable, 10 timeouts;
-  15 mutation-equivalence classes are discharged with Z3; the remaining misses
+- 427 targeted mutants each: 335 caught, 29 missed, 53 unviable, 10 timeouts;
+  21 mutation-equivalence classes are discharged with Z3; the remaining misses
   are unobservable `Drop` wipes;
 - AArch64, s390x, ppc64, i686, Windows/Wine, and WASI runtime passes.
 

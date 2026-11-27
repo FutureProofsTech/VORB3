@@ -16,8 +16,8 @@ release stack claim is tested separately by `scripts/gate.sh`.
 |---|---:|---:|---:|
 | `vorb3` default features (shipped library) | **100.00%** (169/169) | **99.89%** (1827/1829) | 98.74% |
 | `vorb3` all features (includes `bench-api`) | **100.00%** (195/195) | **99.90%** (2050/2052) | 98.82% |
-| `vorb3` NIST Level 1+ (`nist1,bench-api`) | **100.00%** (189/189) | **99.70%** (1974/1980) | 98.78% |
-| `vorb3` NIST Level 3+ (`nist3,bench-api`) | **100.00%** (189/189) | **99.70%** (1974/1980) | 98.78% |
+| `vorb3` NIST Level 1+ (`nist1,bench-api`) | **100.00%** (188/188) | **99.70%** (2017/2023) | 98.69% |
+| `vorb3` NIST Level 3+ (`nist3,bench-api`) | **100.00%** (188/188) | **99.70%** (2017/2023) | 98.69% |
 | Whole workspace including dev CLIs | 72.49% (195/269) | 74.96% (2048/2732) | 73.19% |
 
 The workspace total is lower because `tools/attack` and `tools/bench` are CLI

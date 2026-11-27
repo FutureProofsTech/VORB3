@@ -243,6 +243,27 @@ def main() -> int:
     n1_verify = phase_table(data["nist1"], "verify.32B", verify_phases)
     n3_verify = phase_table(data["nist3"], "verify.32B", verify_phases)
 
+    def med(key: str, name: str) -> float:
+        return median(data[key], name)
+
+    def slope(key: str, op: str) -> float:
+        return (med(key, f"{op}.16MiB") - med(key, f"{op}.0B")) / 16.0 / 1_000_000.0
+
+    sign_b, sign_1, sign_3 = (med(key, "sign.32B") for key in ("base", "nist1", "nist3"))
+    ver_b, ver_1, ver_3 = (med(key, "verify.32B") for key in ("base", "nist1", "nist3"))
+    rain_b, rain_1, rain_3 = (med(key, "encrypt") for key in ("base", "nist1", "nist3"))
+    inv_b, inv_1, inv_3 = (med(key, "inverse") for key in ("base", "nist1", "nist3"))
+    sq_b, sq_1, sq_3 = (med(key, "square") for key in ("base", "nist1", "nist3"))
+    roots_b, roots_1, roots_3 = (med(key, find(data[key], "roots.")) for key in ("base", "nist1", "nist3"))
+    recon_b, recon_1, recon_3 = (
+        med(key, find(data[key], "reconstruct_roots.")) for key in ("base", "nist1", "nist3")
+    )
+    pk_b, pk_1, pk_3 = (med(key, "public_key.profile") for key in ("base", "nist1", "nist3"))
+    sig_b, sig_1, sig_3 = (med(key, "signature.profile") for key in ("base", "nist1", "nist3"))
+    slope_sign_b, slope_ver_b = slope("base", "sign"), slope("base", "verify")
+    slope_sign_1, slope_ver_1 = slope("nist1", "sign"), slope("nist1", "verify")
+    slope_sign_3, slope_ver_3 = slope("nist3", "sign"), slope("nist3", "verify")
+
     doc = f"""# VORB3 NIST-Tier Full Benchmarks
 
 **Status:** local measurement checkpoint (2026-11-27). Machine- and
@@ -251,7 +272,9 @@ compiler-dependent evidence, not a security proof and not an external audit.
 This report covers the two compact packs plus the SP-288/35 baseline measured
 on the same host in the same session. The raw tables are emitted by
 `scripts/bench.sh`; this file is the curated snapshot. See
-`docs/BENCHMARKS.md` for the earlier baseline analysis.
+`docs/BENCHMARKS.md` for the earlier baseline analysis. The compact packs use
+bit-interleaved squaring, word-level reduction, and an Itoh-Tsujii inversion
+chain; the SP-288/35 baseline is unchanged.
 
 - host: `{meta['host']}`
 - cpu: `{meta['cpu']}`
@@ -271,22 +294,23 @@ Medians from 25 samples per benchmark. Throughput is `1 / median`.
 
 ### Observations
 
-- Level 1+ signing is **1.51×** the SP-288/35 baseline; Level 3+ is **2.39×**.
-  The compact packs are smaller but slower to sign.
-- Verification is **0.84×** (Level 1+) and **0.95×** (Level 3+) the baseline:
-  32 trees instead of 35 offsets the compact-field cost.
-- Rain-SP1 encryption accounts for the signing regression: **4.42 ms**
-  (Level 1+) and **9.08 ms** (Level 3+) versus **0.258 ms** baseline. The
-  compact field uses fixed-exponent inversion, costing **300 µs / 602 µs**
-  versus **17.4 µs** for the specialized 288-bit field.
-- Compact-field squaring is implemented as a generic multiplication
-  (**0.94 µs / 1.36 µs**), while the 288-bit field has specialized squaring
-  (**13.4 ns**). Inversion is a square-and-multiply chain over the fixed
-  public exponent.
-- GGM roots and root reconstruction are **0.88–0.90×** the baseline because
-  the packs use 32 trees instead of 35; BLAKE3 cost is unchanged.
-- Public-key and signature parsing are cheaper for the compact packs in
-  proportion to their smaller encodings.
+- Level 1+ signing is **{sign_1 / sign_b:.2f}×** the SP-288/35 baseline;
+  Level 3+ is **{sign_3 / sign_b:.2f}×** (below 1.00× is faster).
+- Verification is **{ver_1 / ver_b:.2f}×** (Level 1+) and
+  **{ver_3 / ver_b:.2f}×** (Level 3+); the packs use 32 trees instead of 35.
+- Rain-SP1 encryption is {fmt_lat(rain_1)} (Level 1+) and {fmt_lat(rain_3)}
+  (Level 3+) versus {fmt_lat(rain_b)} baseline. Field inversion is
+  {fmt_lat(inv_1)} / {fmt_lat(inv_3)} versus {fmt_lat(inv_b)}; the
+  Itoh-Tsujii chain uses `n = BITS - 1` squarings and about `log2(n)`
+  multiplications instead of `n - 1` multiplications.
+- Compact-field squaring is now {fmt_lat(sq_1)} / {fmt_lat(sq_3)}, close to
+  the 288-bit specialized squaring ({fmt_lat(sq_b)}).
+- GGM roots are {roots_1 / roots_b:.2f}× / {roots_3 / roots_b:.2f}× and root
+  reconstruction is {recon_1 / recon_b:.2f}× / {recon_3 / recon_b:.2f}× the
+  baseline because the packs use 32 trees instead of 35.
+- Public-key parsing is {pk_1 / pk_b:.2f}× / {pk_3 / pk_b:.2f}× and signature
+  parsing is {sig_1 / sig_b:.2f}× / {sig_3 / sig_b:.2f}× baseline, in
+  proportion to the smaller encodings.
 
 ## 2. Where signing time goes
 
@@ -315,11 +339,12 @@ end-to-end operation by a few percent because each row is sampled separately.
 
 {scaling_table(data)}
 
-At 16 MiB, signing costs about **3.38 ms/MiB** (Level 1+) and
-**3.42 ms/MiB** (Level 3+) over the empty-message case; verification costs
-about **2.08 ms/MiB** and **2.20 ms/MiB**. The baseline slopes are
-3.06 ms/MiB and 2.11 ms/MiB. Signing hashes the message twice; verification
-hashes it once.
+At 16 MiB, signing costs about **{slope_sign_1:.2f} ms/MiB** (Level 1+) and
+**{slope_sign_3:.2f} ms/MiB** (Level 3+) over the empty-message case;
+verification costs about **{slope_ver_1:.2f} ms/MiB** and
+**{slope_ver_3:.2f} ms/MiB**. The baseline slopes are {slope_sign_b:.2f}
+ms/MiB and {slope_ver_b:.2f} ms/MiB. Signing hashes the message twice;
+verification hashes it once.
 
 ## 5. Build and memory
 

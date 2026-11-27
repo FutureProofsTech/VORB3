@@ -1,11 +1,46 @@
 # VORB3 Releases
 
-## Benchmark addendum (post-v1.2.0)
+## v1.3.0 — Compact-field performance release, 2026-11-27
 
-Full same-session benchmark tables for Level 1+ and Level 3+, with the
-SP-288/35 baseline for comparison, are in `NIST-BENCHMARKS.md`. Headline
-medians: Level 1+ sign 9.602 ms / verify 4.761 ms; Level 3+ sign 15.186 ms /
-verify 5.412 ms; baseline sign 6.364 ms / verify 5.676 ms.
+**Profiles:** the SP-288/35 default profile is unchanged. Level 1+
+(SP-160/32) and Level 3+ (SP-224/32) keep the same wire format, KATs, and
+signature sizes, with optimized compact-field arithmetic. The frozen KAT
+hashes are unchanged from v1.1.0/v1.2.0.
+
+**Performance (25-sample medians, same host):**
+
+| Operation | Level 1+ | Level 3+ | SP-288/35 |
+|---|---:|---:|---:|
+| Sign, 32 B | 4.855 ms | 5.105 ms | 6.364 ms |
+| Verify, 32 B | 4.639 ms | 4.648 ms | 5.676 ms |
+| Key generation | 74.2 µs | 151.8 µs | 266.1 µs |
+| Rain-SP1 encryption | 69.4 µs | 146.7 µs | 257.9 µs |
+| Field multiplication | 216 ns | 409 ns | 712 ns |
+| Field squaring | 10.5 ns | 11.8 ns | 13.4 ns |
+| Field inversion | 4.43 µs | 9.40 µs | 17.36 µs |
+
+Both compact packs are now faster to sign and verify than the baseline while
+retaining their smaller signatures. GGM/BLAKE3 root derivation is the
+remaining sign-time bottleneck (about 93–96%).
+
+**Change:** bit-interleaved squaring, word-level reduction for
+`BITS % 32 == 0`, and an Itoh–Tsujii inversion chain for the fixed public
+exponent `2^BITS - 2`. Control flow remains fixed-iteration and branches only
+on public values.
+
+**Evidence:** 12,310,692 / 24,575,666 libFuzzer executions; 427 targeted
+mutants each (335 caught, 29 missed, 53 unviable, 10 timeouts; 21 Z3-checked
+equivalence classes); Kani 16/16 each; ASan pass; coverage 100% functions /
+99.70% lines; strict Miri field/key checks; 32 KiB release stack; AArch64,
+s390x, i686, ppc64, Windows/Wine, and WASI passes; dudect 50k Level 1+ sign
+t=-0.317 / verify t=-0.468 and Level 3+ sign t=1.460 / verify t=0.977;
+byte-identical release rlibs: Level 1+
+`bc245cdb11174194cc6cb6ca4f1dfcea8817b59e6bd859d47686980daec1bd0d`,
+Level 3+
+`cf198c13ad60a2bde5a148895bb61d1707667efaee8bcea7a328969a9873d20b`.
+
+Full tables: `NIST-BENCHMARKS.md`. This is local evidence only, not an
+external audit or a security certificate.
 
 ## v1.2.0 — NIST Level 3+ (SP-224/32), 2026-11-27
 

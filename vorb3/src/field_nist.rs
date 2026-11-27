@@ -96,7 +96,7 @@ macro_rules! impl_small_field {
                         }
                     }
                 }
-                reduce::<$product_limbs>($bits, $a, $b, $c, &mut product);
+                reduce_words::<$product_limbs>($bits, $a, $b, $c, &mut product);
                 let mut limbs = [0u32; $limbs];
                 for (out, word) in limbs.iter_mut().zip(product) {
                     *out = word;
@@ -105,25 +105,62 @@ macro_rules! impl_small_field {
             }
 
             /// Field squaring.
+            ///
+            /// Squaring inserts zero bits between the coefficient bits, so the
+            /// 5/7-limb schoolbook product collapses to one spread per limb.
             #[must_use]
             #[inline]
             pub fn square(self) -> Self {
-                self.mul_value(self)
+                let mut product = [0u32; $product_limbs];
+                for (index, limb) in self.limbs.iter().copied().enumerate() {
+                    let spread = spread32(limb);
+                    let low = u32::try_from(spread & 0xFFFF_FFFF).unwrap_or(0);
+                    let high = u32::try_from(spread >> 32).unwrap_or(0);
+                    if let Some(slot) = product.get_mut(index.wrapping_mul(2)) {
+                        *slot ^= low;
+                    }
+                    if let Some(slot) = product.get_mut(index.wrapping_mul(2).wrapping_add(1)) {
+                        *slot ^= high;
+                    }
+                }
+                reduce_words::<$product_limbs>($bits, $a, $b, $c, &mut product);
+                let mut limbs = [0u32; $limbs];
+                for (out, word) in limbs.iter_mut().zip(product) {
+                    *out = word;
+                }
+                Self { limbs }
             }
 
             /// Field inversion with `0 -> 0`, using the public exponent
             /// `2^BITS - 2`.
+            ///
+            /// Itoh-Tsujii binary chain: `n = BITS - 1` squarings and about
+            /// `log2(n)` multiplications instead of `n-1` multiplications.
             #[must_use]
             #[inline]
             pub fn inverse(self) -> Self {
-                let mut result = Self::ONE;
-                for bit in (0..$bits).rev() {
-                    result = result.square();
-                    if bit != 0 {
-                        result = result.mul_value(self);
+                let n = $bits.wrapping_sub(1);
+                let mut value = self;
+                let mut width = 1usize;
+                // Skip the leading chain bit: `width = 1` already represents it.
+                let mut mask = n.next_power_of_two() >> 2;
+                while mask != 0 {
+                    let original = value;
+                    let mut squared = value;
+                    let mut count = 0usize;
+                    while count < width {
+                        squared = squared.square();
+                        count = count.wrapping_add(1);
                     }
+                    value = squared.mul_value(original);
+                    width = width.wrapping_mul(2);
+                    if (n & mask) != 0 {
+                        value = value.square().mul_value(self);
+                        width = width.wrapping_add(1);
+                    }
+                    mask >>= 1;
                 }
-                result
+                value.square()
             }
 
             /// Constant-time zero test.
@@ -230,39 +267,79 @@ fn clmul32(left: u32, right: u32) -> u64 {
 }
 
 #[inline]
-fn get_bit<const N: usize>(words: &[u32; N], bit: usize) -> u32 {
-    words
-        .get(bit / 32)
-        .copied()
-        .map_or(0, |word| (word >> (bit % 32)) & 1)
+fn spread32(value: u32) -> u64 {
+    let mut spread = u64::from(value);
+    spread = (spread | (spread << 16)) & 0x0000_FFFF_0000_FFFF;
+    spread = (spread | (spread << 8)) & 0x00FF_00FF_00FF_00FF;
+    spread = (spread | (spread << 4)) & 0x0F0F_0F0F_0F0F_0F0F;
+    spread = (spread | (spread << 2)) & 0x3333_3333_3333_3333;
+    spread = (spread | (spread << 1)) & 0x5555_5555_5555_5555;
+    spread
 }
 
+/// XOR `value << shift` into a fixed 32-bit word array at a public index.
 #[inline]
-fn xor_bit_masked<const N: usize>(words: &mut [u32; N], bit: usize, mask: u32) {
-    if let Some(word) = words.get_mut(bit / 32) {
-        *word ^= mask << (bit % 32);
+fn xor_shifted<const N: usize>(words: &mut [u32; N], index: usize, shift: usize, value: u32) {
+    let wide = u64::from(value) << shift;
+    let low = u32::try_from(wide & 0xFFFF_FFFF).unwrap_or(0);
+    let high = u32::try_from(wide >> 32).unwrap_or(0);
+    if let Some(slot) = words.get_mut(index) {
+        *slot ^= low;
+    }
+    if let Some(slot) = words.get_mut(index.wrapping_add(1)) {
+        *slot ^= high;
     }
 }
 
+/// Reduce a 2L-limb product when `BITS` is a multiple of 32.
+///
+/// For `x^BITS = x^a + x^b + x^c + 1`, each high word reduces to four shifted
+/// copies at `word - L`. Processing high words in descending order folds the
+/// feedback back into the same pass.
 #[inline]
-fn reduce<const N: usize>(bits: usize, a: usize, b: usize, c: usize, words: &mut [u32; N]) {
-    for bit in (bits..bits.wrapping_mul(2)).rev() {
-        let flag = get_bit(words, bit);
-        xor_bit_masked(words, bit, flag);
-        for term in [0usize, a, b, c] {
-            xor_bit_masked(words, bit.wrapping_sub(bits).wrapping_add(term), flag);
+fn reduce_words<const N: usize>(bits: usize, a: usize, b: usize, c: usize, words: &mut [u32; N]) {
+    let limbs = bits / 32;
+    let mut index = N;
+    while index > limbs {
+        index = index.wrapping_sub(1);
+        let word = words.get(index).copied().unwrap_or(0);
+        if let Some(slot) = words.get_mut(index) {
+            *slot = 0;
+        }
+        let base = index.wrapping_sub(limbs);
+        for shift in [0usize, a, b, c] {
+            xor_shifted(words, base, shift, word);
         }
     }
 }
 
 #[cfg(feature = "nist1")]
-impl_small_field!(F160, 5, 10, 20, 160, 5, 3, 2, [1, 0, 0, 0, 0]);
+impl_small_field!(
+    F160,
+    5,
+    10,
+    20,
+    160usize,
+    5usize,
+    3usize,
+    2usize,
+    [1, 0, 0, 0, 0]
+);
 #[cfg(feature = "nist3")]
-impl_small_field!(F224, 7, 14, 28, 224, 9, 8, 3, [1, 0, 0, 0, 0, 0, 0]);
+impl_small_field!(
+    F224,
+    7,
+    14,
+    28,
+    224usize,
+    9usize,
+    8usize,
+    3usize,
+    [1, 0, 0, 0, 0, 0, 0]
+);
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "nist1")]
     #[cfg(feature = "nist1")]
     use super::F160;
     #[cfg(feature = "nist3")]
